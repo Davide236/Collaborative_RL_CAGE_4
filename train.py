@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 500
+MAX_EPS = 5
 LOAD_NETWORKS = False
 ROLLOUT = 5
 
@@ -22,7 +22,7 @@ def main():
     cyborg = CybORG(scenario_generator=sg) # Add Seed
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
-    best_reward = -10000
+    best_reward =0 #-6000
     # TODO: Check for 'Labels' and 'Mask' in the action space
     agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent) for agent in range(5)}
     print(f'Using agents {agents}')
@@ -92,7 +92,10 @@ def main():
             if (i+1) % ROLLOUT == 0:
                 print(f"Policy update for  {agent_name}. Total steps: {count}")
                 agent.learn(count) 
-    # Graph of average rewards and print output results   
+    # Save loss data
+    for agent_name, agent in agents.items():
+        agent.save_statistics_csv()  
+    # Graph of average rewards and print output results 
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
     plt.plot(total_rewards)
