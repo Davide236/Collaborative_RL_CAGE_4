@@ -30,7 +30,8 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
-        state = torch.FloatTensor(state.reshape(1,-1)) # Flatten the state
+        normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
+        state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.observation_mem.append(state) 
@@ -38,7 +39,7 @@ class PPO:
         self.actions_mem.append(action) 
         self.action_mask_mem.append(action_mask)
         self.episodic_state_val.append(state_value) 
-        return action #, logprob, state_value# TODO: action.detach().numpy()
+        return action.item() #, logprob, state_value# TODO: action.detach().numpy()
     
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
@@ -74,7 +75,6 @@ class PPO:
     def init_checkpoint(self, number):
         self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_ppo_{number}')
         self.checkpoint_file_critic = os.path.join('saved_networks', f'critic_ppo_{number}')
-        #########
         self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_ppo_{number}')
         self.last_checkpoint_file_critic = os.path.join('last_networks', f'critic_ppo_{number}')
 
@@ -162,16 +162,20 @@ class PPO:
                     of the actions (actor network) and the entropy of the action distribution.
         """
         state_value = self.policy.critic(observations).squeeze()
+        mean = self.policy.actor(observations)
+        dist = Categorical(mean)
+        log_probs = dist.log_prob(actions)
+        entropy = dist.entropy()
         # Compute logits from the actor network
-        logits = self.policy.actor(observations)
+        #logits = self.policy.actor(observations)
         # Apply action masking to the logits
-        masked_logits = torch.where(action_mask.bool(), logits, torch.tensor(-1e8))
-        masked_distribution = Categorical(logits=masked_logits)
+        #masked_logits = torch.where(action_mask.bool(), logits, torch.tensor(-1e8))
+        #masked_distribution = Categorical(logits=masked_logits)
         # Compute log probabilities of actions, considering action masking
-        log_probs = masked_distribution.log_prob(actions)
+        #log_probs = masked_distribution.log_prob(actions)
     
         # Compute entropy of the action distribution, considering action masking
-        entropy = masked_distribution.entropy()
+        #entropy = masked_distribution.entropy()
         return state_value, log_probs, entropy
     
     def calculate_gae(self, rewards, values, terminated):
@@ -240,6 +244,10 @@ class PPO:
         action_mask = torch.tensor(self.action_mask_mem, dtype=torch.int)
         step = acts.size(0)
         index = np.arange(step)
+        # Save Losses
+        critic_loss = 0
+        actor_loss = 0
+        entropy_loss = 0
         # Calculate the size of the minibatches
         minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
@@ -290,13 +298,12 @@ class PPO:
                 nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.max_grad_norm)
                 self.policy.critic_optimizer.step()
 
-                self.save_data(entropy_loss, critic_loss, actor_loss)
             # Check if the update was too large
             if approx_kl > self.target_kl:
-                t = torch.tensor(-1)
-                self.save_data(t,t,t)
                 print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
         self.clear_rollout_memory()
+        # Save last results
+        self.save_data(entropy_loss, critic_loss, actor_loss)
 
