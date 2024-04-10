@@ -46,6 +46,17 @@ class PPO:
         self.critic_loss = []
         self.actor_loss = []
         self.save_path = f'saved_statistics\data_agent_{number}.csv'
+    
+    def save_last_epoch(self):
+        print('Saving Networks.....')
+        torch.save(self.policy.actor.state_dict(),self.last_checkpoint_file_actor)
+        torch.save(self.policy.critic.state_dict(),self.last_checkpoint_file_critic)
+    
+    # Load the last saved networks
+    def load_last_epoch(self):
+        print('Loading Last saved Networks......')
+        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
+        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
 
     # Save both actor and critic networks of the agent
     def save_network(self):
@@ -63,6 +74,9 @@ class PPO:
     def init_checkpoint(self, number):
         self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_ppo_{number}')
         self.checkpoint_file_critic = os.path.join('saved_networks', f'critic_ppo_{number}')
+        #########
+        self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_ppo_{number}')
+        self.last_checkpoint_file_critic = os.path.join('last_networks', f'critic_ppo_{number}')
 
     # Save the statistics to a csv file
     def save_statistics_csv(self):
@@ -76,7 +90,7 @@ class PPO:
     def init_hyperparameters(self, episodes):
         self.epochs = 10
         self.gamma = 0.99 # Discount factor
-        self.clip = 0.1 # Clipping value: 0.2 is the value recommended by the paper.
+        self.clip = 0.2 # Clipping value: 0.2 is the value recommended by the paper.
         self.lr = 2.5e-4 # Learning rate of optimizer
         self.eps = 1e-5 # Epsilon value of optimizer to improve stability
         self.gae_lambda = 0.95 # General advantage estimation
@@ -85,7 +99,7 @@ class PPO:
         self.value_coefficient = 0.5 # State value coeff for loss calculation
         self.max_grad_norm = 0.5 # Gradient clipping value
         self.minibatch_number = 1 
-        self.target_kl = 0.01 # 0.02 is also an option here
+        self.target_kl = 0.02 # 0.02 is also an option here
 
     # Initialize the rollout memory
     def init_rollout_memory(self):
@@ -238,7 +252,7 @@ class PPO:
         # Perform the updates for X amount of epochs
         for _ in range(self.epochs):
             # Reduce the learning rate
-            self.anneal_lr(total_steps)
+            #self.anneal_lr(total_steps)
             np.random.shuffle(index) # Shuffle the index
             # Process each minibatch
             for start in range(0, step, minibatch_size):
@@ -257,17 +271,25 @@ class PPO:
                 logrations = curr_log_probs - mini_log_prob
                 ratios = torch.exp(logrations)
                 approx_kl = ((ratios - 1) - logrations).mean()
-                surr1 = ratios*mini_advantage
-                surr2 = torch.clamp(ratios, 1-self.clip, 1+self.clip)*mini_advantage
-                actor_loss = (-torch.min(surr1,surr2)).mean()
+                actor_loss1 = ratios*mini_advantage
+                actor_loss2 = torch.clamp(ratios, 1-self.clip, 1+self.clip)*mini_advantage
+                actor_loss = (-torch.min(actor_loss1,actor_loss2)).mean()
                 actor_loss = actor_loss - entropy_loss*self.entropy_coeff
                 critic_loss = nn.MSELoss()(state_values, mini_rtgs)
-                total_loss = actor_loss + critic_loss
-                self.policy.optimizer.zero_grad()
-                total_loss.backward()
+
+                # Actor Update
+                self.policy.actor_optimizer.zero_grad()
+                actor_loss.backward()
                 # Gradient clipping for the networks (L2 Normalization)
-                nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                self.policy.optimizer.step()
+                nn.utils.clip_grad_norm_(self.policy.actor.parameters(), self.max_grad_norm)
+                self.policy.actor_optimizer.step()
+                # Critic update
+                self.policy.critic_optimizer.zero_grad()
+                critic_loss.backward()
+                # Gradient clipping for the networks (L2 Normalization)
+                nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.max_grad_norm)
+                self.policy.critic_optimizer.step()
+
                 self.save_data(entropy_loss, critic_loss, actor_loss)
             # Check if the update was too large
             if approx_kl > self.target_kl:

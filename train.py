@@ -5,12 +5,14 @@ from CybORG.Agents.PPO.ppo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 
+import csv
 import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 5
+MAX_EPS = 500
 LOAD_NETWORKS = False
+LOAD_BEST = False
 ROLLOUT = 5
 
 def main():
@@ -19,20 +21,24 @@ def main():
                                      green_agent_class=EnterpriseGreenAgent,
                                      red_agent_class=FiniteStateRedAgent,
                                      steps=EPISODE_LENGTH)
-    cyborg = CybORG(scenario_generator=sg) # Add Seed
+    cyborg = CybORG(scenario_generator=sg, seed=1) # Add Seed
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
-    best_reward =0 #-6000
     # TODO: Check for 'Labels' and 'Mask' in the action space
     agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
         for agent_name, agent in agents.items():
-            agent.load_network()
+            if LOAD_BEST:
+                agent.load_network()
+            else:
+                agent.load_last_epoch()
     # TODO: Add recording of time
     total_rewards = [] 
     count = 0 # Keep track of total episodes
     partial_rewards = 0
+    best_reward = -6000
+    average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
         observations, _ = env.reset()
@@ -75,6 +81,7 @@ def main():
         # Print average reward before rollout
         if (i+1) % ROLLOUT == 0:
             avg_rwd = partial_rewards/ROLLOUT
+            average_rewards.append(avg_rwd)
             print(f"Average reward obtained before update: {avg_rwd}")
             # If the average reward is better than the best reward then save agents
             if avg_rwd > best_reward:
@@ -94,10 +101,16 @@ def main():
                 agent.learn(count) 
     # Save loss data
     for agent_name, agent in agents.items():
-        agent.save_statistics_csv()  
+        agent.save_statistics_csv() 
+        agent.save_last_epoch() 
     # Graph of average rewards and print output results 
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
+    total_rewards_transposed = [[elem] for elem in average_rewards]
+    with open('reward_history.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Rewards'])  # Write header
+        writer.writerows(total_rewards_transposed)
     plt.plot(total_rewards)
     plt.xlabel('Episode')
     plt.ylabel('Reward')

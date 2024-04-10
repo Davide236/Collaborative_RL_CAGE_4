@@ -6,7 +6,7 @@ class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, lr, eps):
         super(ActorCritic, self).__init__()
         # Width of the network
-        fc = 64
+        fc = 256
         # Initialize actor network
         self.actor = nn.Sequential(
             nn.Linear(state_dim, fc),
@@ -25,7 +25,8 @@ class ActorCritic(nn.Module):
             nn.Linear(fc, 1)
         )
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, eps=eps)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, eps=eps)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr, eps=eps)
 
     def action_selection(self, state, action_mask):
         """

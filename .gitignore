@@ -34,3 +34,7 @@ CybORG/Emulator/AWS/Config/awsconfig.ini
 
 .ipynb_checkpoints/
 .idea
+
+.last_networks/
+.saved_statistics/
+reward_history.csv
