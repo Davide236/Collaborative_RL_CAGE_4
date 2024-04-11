@@ -38,3 +38,4 @@ CybORG/Emulator/AWS/Config/awsconfig.ini
 .last_networks/
 .saved_statistics/
 reward_history.csv
+rewards.csv

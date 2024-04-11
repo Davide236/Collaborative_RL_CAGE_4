@@ -142,7 +142,8 @@ class PPO:
         """
         frac = (steps-1)/self.max_episodes
         new_lr = self.lr * (1-frac)
-        self.policy.optimizer.param_groups[0]["lr"] = new_lr
+        self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
+        self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
     
     def evaluate(self, observations, actions, action_mask):
         """
@@ -260,7 +261,7 @@ class PPO:
         # Perform the updates for X amount of epochs
         for _ in range(self.epochs):
             # Reduce the learning rate
-            #self.anneal_lr(total_steps)
+            self.anneal_lr(total_steps)
             np.random.shuffle(index) # Shuffle the index
             # Process each minibatch
             for start in range(0, step, minibatch_size):
