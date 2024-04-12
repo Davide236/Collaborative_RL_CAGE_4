@@ -17,6 +17,7 @@ class PPO:
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
     
+    
     def get_action(self, state, action_mask):
         """
         Args:
