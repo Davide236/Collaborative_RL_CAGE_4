@@ -14,9 +14,10 @@ class PPO:
         self.init_rollout_memory()
         self.init_checkpoint(number)
         self.init_check_memory(number)
+        #
+        self.agent_number = number
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
-    
     
     def get_action(self, state, action_mask):
         """
@@ -31,6 +32,8 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
+        message = self.extract_subnet_info(state, self.agent_number)
+        #self.create_binary_message(malicious_process, malicious_network)
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
@@ -40,8 +43,75 @@ class PPO:
         self.actions_mem.append(action) 
         self.action_mask_mem.append(action_mask)
         self.episodic_state_val.append(state_value) 
-        return action.item() #, logprob, state_value# TODO: action.detach().numpy()
+        return action.item(), np.array(message) #, logprob, state_value# TODO: action.detach().numpy()
     
+    # Create 8-bit messages to send between agents
+    def create_binary_message_two_bits(self,malicious_process, malicious_network, subnet_vec):
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        process_bit = 0
+        network_bit = 0
+        for process in malicious_process:
+            if any(process):
+                process_bit = 1
+        for network in malicious_network:
+            if any(network):
+                network_bit = 1
+        message[0] = process_bit
+        message[1] = network_bit
+        return message
+    
+    # Return the number of malicious processes and networks identified
+    def create_binary_message_full_bits(self, malicious_process,malicious_network,subnet_vec):
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        total_network = np.sum(malicious_network)
+        total_processes = np.sum(malicious_process)
+        binary_network = format(total_network, '04b')
+        binary_processes = format(total_processes, '04b')
+        binary_message = binary_processes + binary_network
+        for i, bit in enumerate(binary_message):
+            message[i] = int(bit)
+        return message
+    
+    # Function to extract information for each subnet
+    def extract_subnet_info(self, observation_vector, number):
+        total_subnets = 1
+        # Agent 4 takes care of more subnets
+        if number == 4:
+            total_subnets = 3
+        S = 9  # Number of subnets
+        H = 16  # Maximum number of hosts in each subnet
+        subnets_length = 3*S + 2*H
+        subnet_info = []
+        for i in range(total_subnets):
+            subnet_start_index = i * (subnets_length) + 1
+            subnet = observation_vector[subnet_start_index:subnet_start_index + subnets_length]
+            subnet_vector = subnet[:S]
+            blocked_subnets = subnet[S:2 * S]
+            communication_policy = subnet[2 * S:3 * S]
+            malicious_process_event_detected = subnet[3 * S:3 * S + H]
+            malicious_network_event_detected = subnet[3 * S + H:]
+            subnet_info.append({
+                'subnet_vector': subnet_vector,
+                'blocked_subnets': blocked_subnets,
+                'communication_policy': communication_policy,
+                'malicious_process_event_detected': malicious_process_event_detected,
+                'malicious_network_event_detected': malicious_network_event_detected
+            })
+        malicious_network = []
+        malicious_process = []
+        subnet_vec = []
+        # Iterate through each subnet information dictionary
+        for subnet in subnet_info:
+            # Append the 'malicious_network_event_detected' array to the malicious_network list
+            malicious_network.append(subnet['malicious_network_event_detected'])
+            malicious_process.append(subnet['malicious_process_event_detected'])
+            subnet_vec.append(subnet['subnet_vector'])
+        if number == 4:
+            return self.create_binary_message_two_bits(malicious_process, malicious_network, subnet_vec)
+        return self.create_binary_message_full_bits(malicious_process, malicious_network, subnet_vec)
+
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
         self.entropy = []
@@ -111,6 +181,7 @@ class PPO:
         self.logprobs_mem = []
         self.state_val_mem = [] 
         self.action_mask_mem = [] #### 
+        self.message_mem = []
         self.episodic_rewards = [] #
         self.episodic_termination = []
         self.episodic_state_val = []
@@ -124,6 +195,7 @@ class PPO:
         del self.logprobs_mem[:]
         del self.state_val_mem[:]
         del self.action_mask_mem[:]
+        del self.message_mem[:]
     
     # Clear the episodic memory
     def clear_episodic(self):

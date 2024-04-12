@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 500
-LOAD_NETWORKS = True
+MAX_EPS = 200
+LOAD_NETWORKS = False
 LOAD_BEST = False
 ROLLOUT = 5
 
@@ -46,7 +46,7 @@ def main():
         for j in range(EPISODE_LENGTH): # Episode length
             count += 1
             # Action selection for all agents
-            actions = {
+            actions_messages = {
                 agent_name: agent.get_action(
                     observations[agent_name],
                     env.action_mask(agent_name)
@@ -54,8 +54,10 @@ def main():
                 for agent_name, agent in agents.items() 
                 if agent_name in env.agents
             }
+            actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
+            messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
             # Perform action on the environment
-            observations, reward, termination, truncation, _ = env.step(actions)
+            observations, reward, termination, truncation, _ = env.step(actions, messages=messages)
 
             # Append the rewards and termination for each agent
             for agent_name, agent in agents.items():
