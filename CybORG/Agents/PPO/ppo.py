@@ -14,7 +14,7 @@ class PPO:
         self.init_rollout_memory()
         self.init_checkpoint(number)
         self.init_check_memory(number)
-        #
+        # Save the number of the agent
         self.agent_number = number
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
@@ -33,7 +33,6 @@ class PPO:
                     the state.
         """
         message = self.extract_subnet_info(state, self.agent_number)
-        #self.create_binary_message(malicious_process, malicious_network)
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
@@ -46,7 +45,28 @@ class PPO:
         return action.item(), np.array(message) #, logprob, state_value# TODO: action.detach().numpy()
     
     # Create 8-bit messages to send between agents
-    def create_binary_message_two_bits(self,malicious_process, malicious_network, subnet_vec):
+    def create_binary_message_full_bits_agent_4(self,malicious_process, malicious_network):
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        process_bit = 0
+        network_bit = 0
+        process_count = 1
+        network_count = 5
+        for process in malicious_process:
+            if any(process):
+                process_bit = 1
+                message[process_count] = 1
+            process_count += 1
+        for network in malicious_network:
+            if any(network):
+                network_bit = 1
+                message[network_count] = 1
+            network_count += 1
+        message[0] = process_bit
+        message[4] = network_bit
+        return message
+    
+    def create_binary_message_two_bits(self,malicious_process, malicious_network):
         message_size = 8 # 8-bits messages
         message = [0] * message_size
         process_bit = 0
@@ -62,7 +82,10 @@ class PPO:
         return message
     
     # Return the number of malicious processes and networks identified
-    def create_binary_message_full_bits(self, malicious_process,malicious_network,subnet_vec):
+    def create_binary_message_full_bits(self, malicious_process,malicious_network):
+        print(f'Agent Number: {self.agent_number}')
+        print(malicious_process)
+        print(malicious_network)
         message_size = 8 # 8-bits messages
         message = [0] * message_size
         total_network = np.sum(malicious_network)
@@ -72,6 +95,7 @@ class PPO:
         binary_message = binary_processes + binary_network
         for i, bit in enumerate(binary_message):
             message[i] = int(bit)
+        print(message)
         return message
     
     # Function to extract information for each subnet
@@ -101,16 +125,15 @@ class PPO:
             })
         malicious_network = []
         malicious_process = []
-        subnet_vec = []
         # Iterate through each subnet information dictionary
         for subnet in subnet_info:
             # Append the 'malicious_network_event_detected' array to the malicious_network list
             malicious_network.append(subnet['malicious_network_event_detected'])
             malicious_process.append(subnet['malicious_process_event_detected'])
-            subnet_vec.append(subnet['subnet_vector'])
-        if number == 4:
-            return self.create_binary_message_two_bits(malicious_process, malicious_network, subnet_vec)
-        return self.create_binary_message_full_bits(malicious_process, malicious_network, subnet_vec)
+        #if number == 4:
+            #return self.create_binary_message_full_bits_agent_4(malicious_process, malicious_network)
+        #return self.create_binary_message_full_bits(malicious_process, malicious_network)
+        return self.create_binary_message_two_bits(malicious_process, malicious_network)
 
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
