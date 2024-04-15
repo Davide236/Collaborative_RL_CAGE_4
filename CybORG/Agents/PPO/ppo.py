@@ -31,7 +31,8 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
-        normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
+        #normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
+        normalized_state = state
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory

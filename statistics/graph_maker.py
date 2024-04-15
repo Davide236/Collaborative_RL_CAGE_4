@@ -2,11 +2,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # List of CSV files for each agent
-csv_files = ['saved_statistics/data_agent_0.csv',
-            'saved_statistics/data_agent_1.csv',
-            'saved_statistics/data_agent_2.csv', 
-            'saved_statistics/data_agent_3.csv',
-            'saved_statistics/data_agent_4.csv']
+csv_files = ['..\saved_statistics/data_agent_0.csv',
+            '..\saved_statistics/data_agent_1.csv',
+            '..\saved_statistics/data_agent_2.csv', 
+            '..\saved_statistics/data_agent_3.csv',
+            '..\saved_statistics/data_agent_4.csv']
 
 # Read data from CSV files and store in a list
 data = []
