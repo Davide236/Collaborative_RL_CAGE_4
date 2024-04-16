@@ -83,9 +83,6 @@ class PPO:
     
     # Return the number of malicious processes and networks identified
     def create_binary_message_full_bits(self, malicious_process,malicious_network):
-        print(f'Agent Number: {self.agent_number}')
-        print(malicious_process)
-        print(malicious_network)
         message_size = 8 # 8-bits messages
         message = [0] * message_size
         total_network = np.sum(malicious_network)
@@ -95,7 +92,6 @@ class PPO:
         binary_message = binary_processes + binary_network
         for i, bit in enumerate(binary_message):
             message[i] = int(bit)
-        print(message)
         return message
     
     # Function to extract information for each subnet

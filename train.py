@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 200
-LOAD_NETWORKS = False
+MAX_EPS = 500
+LOAD_NETWORKS = True
 LOAD_BEST = False
 ROLLOUT = 5
 
