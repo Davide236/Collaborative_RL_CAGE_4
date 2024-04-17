@@ -165,8 +165,10 @@ class PPO:
                     of the actions (actor network) and the entropy of the action distribution.
         """
         state_value = self.policy.critic(observations).squeeze()
-        mean = self.policy.actor(observations)
-        dist = Categorical(mean)
+        masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.policy.actor(observations)
+        #mean = self.policy.actor(observations)
+        #dist = Categorical(mean)
+        dist = Categorical(masked_action_probs)
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
         # Compute logits from the actor network
