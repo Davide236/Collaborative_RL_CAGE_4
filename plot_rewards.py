@@ -20,15 +20,30 @@ for i, value in enumerate(data[0], 1):
     std_deviations.append(std_deviation)
 
 # Plot the average curve
+plt.figure(figsize=(10, 5))
+plt.subplot(2, 1, 1)
 plt.plot(averages, label='Average Reward')
-
-# Plot the area between the average curve plus one standard deviation and the average curve minus one standard deviation
 plt.fill_between(range(len(averages)), np.array(averages) + np.array(std_deviations), np.array(averages) - np.array(std_deviations), alpha=0.3)
-
-# Add labels and title
 plt.xlabel('Number of Episodes')
 plt.ylabel('Reward')
 plt.title('Average Reward with Standard Deviation')
 plt.legend()
 plt.grid(True)
+
+# Calculate the average reward and standard deviation for every 50 episodes
+rolling_window = 50
+rolling_averages = [np.mean(data[0][i:i+rolling_window]) for i in range(0, len(data[0]), rolling_window)]
+rolling_std_deviations = [np.std(data[0][i:i+rolling_window]) for i in range(0, len(data[0]), rolling_window)]
+
+# Plot the rolling average curve
+plt.subplot(2, 1, 2)
+plt.plot(rolling_averages, label='Rolling Average Reward (50 episodes)')
+plt.fill_between(range(len(rolling_averages)), np.array(rolling_averages) + np.array(rolling_std_deviations), np.array(rolling_averages) - np.array(rolling_std_deviations), alpha=0.3)
+plt.xlabel('Number of 50-Episode Windows')
+plt.ylabel('Reward')
+plt.title('Rolling Average Reward with Standard Deviation (50 episodes)')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
 plt.show()
