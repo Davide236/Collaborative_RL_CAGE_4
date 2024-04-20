@@ -353,7 +353,7 @@ class PPO:
         # Perform the updates for X amount of epochs
         for _ in range(self.epochs):
             # Reduce the learning rate
-            self.anneal_lr(total_steps)
+            #self.anneal_lr(total_steps)
             np.random.shuffle(index) # Shuffle the index
             # Process each minibatch
             for start in range(0, step, minibatch_size):

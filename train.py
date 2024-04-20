@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 1500
+MAX_EPS = 100
 LOAD_NETWORKS = True
-LOAD_BEST = False
+LOAD_BEST = True
 ROLLOUT = 5
 
 def main():
@@ -21,7 +21,7 @@ def main():
                                      green_agent_class=EnterpriseGreenAgent,
                                      red_agent_class=FiniteStateRedAgent,
                                      steps=EPISODE_LENGTH)
-    cyborg = CybORG(scenario_generator=sg, seed=1) # Add Seed
+    cyborg = CybORG(scenario_generator=sg) # Add Seed
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
     # TODO: Check for 'Labels' and 'Mask' in the action space
@@ -81,38 +81,38 @@ def main():
         partial_rewards += sum(r)
         total_rewards.append(sum(r))
         # Print average reward before rollout
-        if (i+1) % ROLLOUT == 0:
-            avg_rwd = partial_rewards/ROLLOUT
-            average_rewards.append(avg_rwd)
-            print(f"Average reward obtained before update: {avg_rwd}")
-            # If the average reward is better than the best reward then save agents
-            if avg_rwd > best_reward:
-                best_reward = avg_rwd
-                for agent_name, agent in agents.items():
-                    agent.save_network()
-            partial_rewards = 0  
+        # if (i+1) % ROLLOUT == 0:
+        #     avg_rwd = partial_rewards/ROLLOUT
+        #     average_rewards.append(avg_rwd)
+        #     print(f"Average reward obtained before update: {avg_rwd}")
+        #     # If the average reward is better than the best reward then save agents
+        #     if avg_rwd > best_reward:
+        #         best_reward = avg_rwd
+        #         for agent_name, agent in agents.items():
+        #             agent.save_network()
+        #     partial_rewards = 0  
         # Save rewards, state values and termination flags (divided per episodes)    
-        for agent_name, agent in agents.items():
-            agent.rewards_mem.append(agent.episodic_rewards[:])
-            agent.state_val_mem.append(agent.episodic_state_val[:])
-            agent.terminal_mem.append(agent.episodic_termination[:])
-            agent.clear_episodic()
-            # Every 5 episodes perform a policy update
-            if (i+1) % ROLLOUT == 0:
-                print(f"Policy update for  {agent_name}. Total steps: {count}")
-                agent.learn(count) 
+        # for agent_name, agent in agents.items():
+        #     agent.rewards_mem.append(agent.episodic_rewards[:])
+        #     agent.state_val_mem.append(agent.episodic_state_val[:])
+        #     agent.terminal_mem.append(agent.episodic_termination[:])
+        #     agent.clear_episodic()
+        #     # Every 5 episodes perform a policy update
+        #     if (i+1) % ROLLOUT == 0:
+        #         print(f"Policy update for  {agent_name}. Total steps: {count}")
+        #         agent.learn(count) 
     # Save loss data
-    for agent_name, agent in agents.items():
-        agent.save_statistics_csv() 
-        agent.save_last_epoch() 
+    # for agent_name, agent in agents.items():
+    #     agent.save_statistics_csv() 
+    #     agent.save_last_epoch() 
     # Graph of average rewards and print output results 
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
     total_rewards_transposed = [[elem] for elem in average_rewards]
-    with open('reward_history.csv', mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Rewards'])  # Write header
-        writer.writerows(total_rewards_transposed)
+    # with open('reward_history.csv', mode='w', newline='') as file:
+    #     writer = csv.writer(file)
+    #     writer.writerow(['Rewards'])  # Write header
+    #     writer.writerows(total_rewards_transposed)
     plt.plot(total_rewards)
     plt.xlabel('Episode')
     plt.ylabel('Reward')
