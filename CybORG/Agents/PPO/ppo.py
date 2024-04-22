@@ -1,4 +1,4 @@
-from CybORG.Agents.PPO.networks import ActorCritic
+from CybORG.Agents.PPO.actor_network import ActorNetwork
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
@@ -8,17 +8,20 @@ import os
 import csv
 
 class PPO:
-    def __init__(self, state_dimension, action_dimension, total_episodes, number):
+    def __init__(self, state_dimension, action_dimension, total_episodes, number, critic):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
         self.init_rollout_memory()
         self.init_checkpoint(number)
         self.init_check_memory(number)
+        # Save the number of the agent
+        self.agent_number = number
         # Initialize actor and critic network
-        self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
+        self.actor = ActorNetwork(state_dimension, action_dimension, self.lr, self.eps)
+        # Initialize critic
+        self.critic = critic
     
-    
-    def get_action(self, state, action_mask):
+    def get_action(self, state, action_mask, state_value):
         """
         Args:
             state: The current observation state of the agent.
@@ -31,17 +34,109 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
+        message = self.extract_subnet_info(state, self.agent_number)
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
+        action, logprob = self.actor.action_selection(state, action_mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.observation_mem.append(state) 
         self.logprobs_mem.append(logprob)
         self.actions_mem.append(action) 
         self.action_mask_mem.append(action_mask)
         self.episodic_state_val.append(state_value) 
-        return action.item() #, logprob, state_value# TODO: action.detach().numpy()
+        return action.item(), np.array(message) #, logprob, state_value# TODO: action.detach().numpy()
     
+    # Create 8-bit messages to send between agents
+    def create_binary_message_full_bits_agent_4(self,malicious_process, malicious_network):
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        process_bit = 0
+        network_bit = 0
+        process_count = 1
+        network_count = 5
+        for process in malicious_process:
+            if any(process):
+                process_bit = 1
+                message[process_count] = 1
+            process_count += 1
+        for network in malicious_network:
+            if any(network):
+                network_bit = 1
+                message[network_count] = 1
+            network_count += 1
+        message[0] = process_bit
+        message[4] = network_bit
+        return message
+    
+    def create_binary_message_two_bits(self,malicious_process, malicious_network):
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        process_bit = 0
+        network_bit = 0
+        for process in malicious_process:
+            if any(process):
+                process_bit = 1
+        for network in malicious_network:
+            if any(network):
+                network_bit = 1
+        message[0] = process_bit
+        message[1] = network_bit
+        return message
+    
+    # Return the number of malicious processes and networks identified
+    def create_binary_message_full_bits(self, malicious_process,malicious_network):
+        print(f'Agent Number: {self.agent_number}')
+        print(malicious_process)
+        print(malicious_network)
+        message_size = 8 # 8-bits messages
+        message = [0] * message_size
+        total_network = np.sum(malicious_network)
+        total_processes = np.sum(malicious_process)
+        binary_network = format(total_network, '04b')
+        binary_processes = format(total_processes, '04b')
+        binary_message = binary_processes + binary_network
+        for i, bit in enumerate(binary_message):
+            message[i] = int(bit)
+        print(message)
+        return message
+    
+    # Function to extract information for each subnet
+    def extract_subnet_info(self, observation_vector, number):
+        total_subnets = 1
+        # Agent 4 takes care of more subnets
+        if number == 4:
+            total_subnets = 3
+        S = 9  # Number of subnets
+        H = 16  # Maximum number of hosts in each subnet
+        subnets_length = 3*S + 2*H
+        subnet_info = []
+        for i in range(total_subnets):
+            subnet_start_index = i * (subnets_length) + 1
+            subnet = observation_vector[subnet_start_index:subnet_start_index + subnets_length]
+            subnet_vector = subnet[:S]
+            blocked_subnets = subnet[S:2 * S]
+            communication_policy = subnet[2 * S:3 * S]
+            malicious_process_event_detected = subnet[3 * S:3 * S + H]
+            malicious_network_event_detected = subnet[3 * S + H:]
+            subnet_info.append({
+                'subnet_vector': subnet_vector,
+                'blocked_subnets': blocked_subnets,
+                'communication_policy': communication_policy,
+                'malicious_process_event_detected': malicious_process_event_detected,
+                'malicious_network_event_detected': malicious_network_event_detected
+            })
+        malicious_network = []
+        malicious_process = []
+        # Iterate through each subnet information dictionary
+        for subnet in subnet_info:
+            # Append the 'malicious_network_event_detected' array to the malicious_network list
+            malicious_network.append(subnet['malicious_network_event_detected'])
+            malicious_process.append(subnet['malicious_process_event_detected'])
+        #if number == 4:
+            #return self.create_binary_message_full_bits_agent_4(malicious_process, malicious_network)
+        #return self.create_binary_message_full_bits(malicious_process, malicious_network)
+        return self.create_binary_message_two_bits(malicious_process, malicious_network)
+
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
         self.entropy = []
@@ -51,33 +146,27 @@ class PPO:
     
     def save_last_epoch(self):
         print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.last_checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.last_checkpoint_file_critic)
+        torch.save(self.actor.state_dict(),self.last_checkpoint_file_actor)
     
     # Load the last saved networks
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
-        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
-        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
+        self.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
 
     # Save both actor and critic networks of the agent
     def save_network(self):
         print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.checkpoint_file_critic)
+        torch.save(self.actor.state_dict(),self.checkpoint_file_actor)
     
     # Load both actor and critic network of the agent
     def load_network(self):
         print('Loading Networks......')
-        self.policy.actor.load_state_dict(torch.load(self.checkpoint_file_actor))
-        self.policy.critic.load_state_dict(torch.load(self.checkpoint_file_critic))
+        self.actor.load_state_dict(torch.load(self.checkpoint_file_actor))
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):
         self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_ppo_{number}')
-        self.checkpoint_file_critic = os.path.join('saved_networks', f'critic_ppo_{number}')
         self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_ppo_{number}')
-        self.last_checkpoint_file_critic = os.path.join('last_networks', f'critic_ppo_{number}')
 
     # Save the statistics to a csv file
     def save_statistics_csv(self):
@@ -111,9 +200,11 @@ class PPO:
         self.logprobs_mem = []
         self.state_val_mem = [] 
         self.action_mask_mem = [] #### 
+        self.message_mem = []
         self.episodic_rewards = [] #
         self.episodic_termination = []
         self.episodic_state_val = []
+        self.global_observations_mem = []
     
     # Clear the rollout memory
     def clear_rollout_memory(self):
@@ -124,6 +215,8 @@ class PPO:
         del self.logprobs_mem[:]
         del self.state_val_mem[:]
         del self.action_mask_mem[:]
+        del self.message_mem[:]
+        del self.global_observations_mem[:]
     
     # Clear the episodic memory
     def clear_episodic(self):
@@ -143,10 +236,10 @@ class PPO:
         """
         frac = (steps-1)/self.max_episodes
         new_lr = self.lr * (1-frac)
-        self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
-        self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
+        self.actor.actor_optimizer.param_groups[0]["lr"] = new_lr
+        self.critic.critic_optimizer.param_groups[0]["lr"] = new_lr
     
-    def evaluate(self, observations, actions, action_mask):
+    def evaluate(self, global_obs, observations, actions, action_mask):
         """
         Args: 
             observations: list of observation (states) recorded by the agent
@@ -163,10 +256,10 @@ class PPO:
                     of the observations (critic network), the logarithmic probability
                     of the actions (actor network) and the entropy of the action distribution.
         """
-        state_value = self.policy.critic(observations).squeeze()
-        masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.policy.actor(observations)
+        # TODO: Change this
+        state_value = self.critic.get_state_value(global_obs).squeeze()
+        masked_action_probs = self.actor(observations)
         #mean = self.policy.actor(observations)
-        #dist = Categorical(mean)
         dist = Categorical(masked_action_probs)
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
@@ -182,6 +275,7 @@ class PPO:
         #entropy = masked_distribution.entropy()
         return state_value, log_probs, entropy
     
+    # TODO: Calculate GAE here can be done for all the agents since it's centralized(?)
     def calculate_gae(self, rewards, values, terminated):
         """
         Args: 
@@ -243,6 +337,8 @@ class PPO:
         """
         # Transform the observations, actions and log probability list into tensors
         obs = torch.cat(self.observation_mem, dim=0)
+        global_obs = torch.cat(self.global_observations_mem, dim=0)
+        # TODO: Print here
         acts = torch.tensor(self.actions_mem, dtype=torch.float)
         logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()
         action_mask = torch.tensor(self.action_mask_mem, dtype=torch.int)
@@ -256,7 +352,7 @@ class PPO:
         minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
         A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
-        state_values, _, _ = self.evaluate(obs, acts, action_mask)
+        state_values, _, _ = self.evaluate(global_obs, obs, acts, action_mask)
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
@@ -272,12 +368,13 @@ class PPO:
                 end = start + minibatch_size
                 idx = index[start:end]
                 mini_obs = obs[idx]
+                mini_global_obs = global_obs[idx]
                 mini_acts = acts[idx]
                 mini_log_prob = logprob[idx]
                 mini_advantage = A_k[idx]
                 mini_rtgs = rtgs[idx]
                 batch_mask = action_mask[idx]
-                state_values, curr_log_probs, entropy = self.evaluate(mini_obs, mini_acts, batch_mask)
+                state_values, curr_log_probs, entropy = self.evaluate(mini_global_obs,mini_obs, mini_acts, batch_mask)
                 # Compute policy loss with the formula
                 entropy_loss = entropy.mean()
                 logrations = curr_log_probs - mini_log_prob
@@ -287,20 +384,20 @@ class PPO:
                 actor_loss2 = torch.clamp(ratios, 1-self.clip, 1+self.clip)*mini_advantage
                 actor_loss = (-torch.min(actor_loss1,actor_loss2)).mean()
                 actor_loss = actor_loss - entropy_loss*self.entropy_coeff
-                critic_loss = nn.MSELoss()(state_values, mini_rtgs)
 
                 # Actor Update
-                self.policy.actor_optimizer.zero_grad()
+                self.actor.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 # Gradient clipping for the networks (L2 Normalization)
-                nn.utils.clip_grad_norm_(self.policy.actor.parameters(), self.max_grad_norm)
-                self.policy.actor_optimizer.step()
-                # Critic update
-                self.policy.critic_optimizer.zero_grad()
+                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+                self.actor.actor_optimizer.step()
+                # TODO: Change this
+                critic_loss = nn.MSELoss()(state_values, mini_rtgs)
+                self.critic.critic_optimizer.zero_grad()
                 critic_loss.backward()
                 # Gradient clipping for the networks (L2 Normalization)
-                nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.max_grad_norm)
-                self.policy.critic_optimizer.step()
+                nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+                self.critic.critic_optimizer.step()
 
             # Check if the update was too large
             if approx_kl > self.target_kl:
@@ -310,4 +407,3 @@ class PPO:
         self.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)
-
