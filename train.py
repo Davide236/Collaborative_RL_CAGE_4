@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 500
+MAX_EPS = 1000
 LOAD_NETWORKS = True
 LOAD_BEST = False
 ROLLOUT = 5
@@ -40,7 +40,7 @@ def main():
     lr = 2.5e-4 # Learning rate of optimizer
     eps = 1e-5 
     centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5, lr, eps)
-    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic) for agent in range(5)}
+    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH + 750000, agent, centralized_critic) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
         for agent_name, agent in agents.items():
