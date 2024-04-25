@@ -14,25 +14,10 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 2000
+MAX_EPS = 100
 LOAD_NETWORKS = True
 LOAD_BEST = False
 ROLLOUT = 5
-
-def concatenate_observations(observations, agents):
-    observation_list = []
-    for agent_name, agent in agents.items():
-        observation_list.extend(observations[agent_name])
-    normalized_state = (observation_list - np.mean(observation_list)) / (np.std(observation_list) + 1e-8)
-    state = torch.FloatTensor(normalized_state.reshape(1,-1))
-    return state
-
-def add_value(array, new_value):
-    # Remove the oldest value (the first element)
-    array.pop(0)
-    # Add the new value at the end
-    array.append(new_value)
-    return array
 
 def main():
     # Initialize CybORG environment
@@ -40,13 +25,10 @@ def main():
                                      green_agent_class=EnterpriseGreenAgent,
                                      red_agent_class=FiniteStateRedAgent,
                                      steps=EPISODE_LENGTH)
-    cyborg = CybORG(scenario_generator=sg, seed=1) # Add Seed
+    cyborg = CybORG(scenario_generator=sg) # Add Seed
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
-    lr = 2.5e-4 # Learning rate of optimizer
-    eps = 1e-5
-    five_ep_avg = [-5000] * 5 
-    centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5, lr, eps)
+    centralized_critic = 0 # Just for eval
     agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
@@ -54,12 +36,12 @@ def main():
             if LOAD_BEST:
                 agent.load_network()
             else:
+                print("HERE")
                 agent.load_last_epoch()
     # TODO: Add recording of time
     total_rewards = [] 
     count = 0 # Keep track of total episodes
     partial_rewards = 0
-    best_reward = -1300
     average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
@@ -67,8 +49,7 @@ def main():
         r = []
         for j in range(EPISODE_LENGTH): # Episode length
             count += 1
-            observations_list = concatenate_observations(observations, agents)
-            state_value = centralized_critic.get_state_value(observations_list)
+            state_value = 0
             # Action selection for all agents
             actions_messages = {
                 agent_name: agent.get_action(
@@ -83,21 +64,11 @@ def main():
             messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
             # Perform action on the environment
             observations, reward, termination, truncation, _ = env.step(actions) #, messages=messages)
-
-            # Append the rewards and termination for each agent
-            for agent_name, agent in agents.items():
-                done = termination[agent_name] or truncation[agent_name]
-                agent.episodic_rewards.append(reward[agent_name]) # Save reward
-                agent.episodic_termination.append(done) # Save termination
-                agent.global_observations_mem.append(observations_list)
             # This terminates if all agent have 'termination=true'
             done = {
                 agent: termination.get(agent, False) or truncation.get(agent, False)
                 for agent in env.agents
             }
-            #for agent in env.agents:
-                #continue
-                #print(f"Agent: {agent} made action: {env.get_last_action(agent)}")
             # If all agents are done (truncation) then end the episode
             if all(done.values()):
                 break
@@ -105,47 +76,10 @@ def main():
         print(f"Final reward of the episode: {sum(r)}, length {count}")
         # Add to partial rewards  
         partial_rewards += sum(r)
-        total_rewards.append(sum(r))
-        # Print average reward before rollout
-        if (i+1) % ROLLOUT == 0:
-            avg_rwd = partial_rewards/ROLLOUT
-            average_rewards.append(avg_rwd)
-            print(f"Average reward obtained before update: {avg_rwd}")
-            add_value(five_ep_avg, avg_rwd)
-            # If the average reward is better than the best reward then save agents
-            if avg_rwd > best_reward:
-                best_reward = avg_rwd
-                for agent_name, agent in agents.items():
-                    agent.save_network()
-                    centralized_critic.save_network()
-            partial_rewards = 0 
-        if np.mean(five_ep_avg) >= -1700:
-            print(five_ep_avg)
-            print(np.mean(five_ep_avg))
-            break
-        # Save rewards, state values and termination flags (divided per episodes)    
-        for agent_name, agent in agents.items():
-            agent.rewards_mem.append(agent.episodic_rewards[:])
-            agent.state_val_mem.append(agent.episodic_state_val[:])
-            agent.terminal_mem.append(agent.episodic_termination[:])
-            agent.clear_episodic()
-            # Every 5 episodes perform a policy update
-            if (i+1) % ROLLOUT == 0:
-                print(f"Policy update for  {agent_name}. Total steps: {count}")
-                agent.learn(count) 
-    # Save loss data
-    for agent_name, agent in agents.items():
-        agent.save_statistics_csv() 
-        agent.save_last_epoch() 
-        centralized_critic.save_last_epoch()
+        total_rewards.append(sum(r)) 
     # Graph of average rewards and print output results 
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
-    total_rewards_transposed = [[elem] for elem in average_rewards]
-    with open('reward_history.csv', mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Rewards'])  # Write header
-        writer.writerows(total_rewards_transposed)
     plt.plot(total_rewards)
     plt.xlabel('Episode')
     plt.ylabel('Reward')
