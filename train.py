@@ -51,7 +51,7 @@ def main():
     total_rewards = [] 
     count = 0 # Keep track of total episodes
     partial_rewards = 0
-    best_reward = -4000
+    best_reward = -1300
     average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
