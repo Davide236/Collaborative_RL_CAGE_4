@@ -47,8 +47,8 @@ class ActorCritic(nn.Module):
                     critic network.
         """
         # Apply action mask to the action probabilities
-        #masked_action_probs = self.actor(state)
-        masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
+        masked_action_probs = self.actor(state)
+        #masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
         # Normalize probabilities
         #masked_action_probs /= masked_action_probs.sum()
         distribution = Categorical(masked_action_probs)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 1000
+MAX_EPS = 1500
 LOAD_NETWORKS = True
 LOAD_BEST = False
 ROLLOUT = 5
@@ -37,7 +37,7 @@ def main():
     total_rewards = [] 
     count = 0 # Keep track of total episodes
     partial_rewards = 0
-    best_reward = -4000
+    best_reward = -2000
     average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
