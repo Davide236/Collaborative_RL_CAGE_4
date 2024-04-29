@@ -138,28 +138,34 @@ class PPO:
         self.actor_loss = []
         self.save_path = f'saved_statistics\data_agent_{number}.csv'
     
+    
     def save_last_epoch(self):
-        print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.last_checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.last_checkpoint_file_critic)
+        print('Saving Networks and Optimizers.....')
+        torch.save({
+            'actor_state_dict': self.policy.actor.state_dict(),
+            'actor_optimizer_state_dict': self.policy.actor_optimizer.state_dict(),
+        }, self.last_checkpoint_file_actor)
     
-    # Load the last saved networks
     def load_last_epoch(self):
-        print('Loading Last saved Networks......')
-        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
-        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
+        print('Loading Last saved Networks and Optimizers......')
+        checkpoint = torch.load(self.last_checkpoint_file_actor)
+        self.policy.actor.load_state_dict(checkpoint['actor_state_dict'])
+        self.policy.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
-    # Save both actor and critic networks of the agent
     def save_network(self):
-        print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.checkpoint_file_critic)
+        print('Saving Networks and Optimizers.....')
+        torch.save({
+            'actor_state_dict': self.policy.actor.state_dict(),
+            'actor_optimizer_state_dict': self.policy.actor_optimizer.state_dict(),
+        }, self.checkpoint_file_actor)
     
-    # Load both actor and critic network of the agent
     def load_network(self):
-        print('Loading Networks......')
-        self.policy.actor.load_state_dict(torch.load(self.checkpoint_file_actor))
-        self.policy.critic.load_state_dict(torch.load(self.checkpoint_file_critic))
+        print('Loading Networks and Optimizers......')
+        checkpoint = torch.load(self.checkpoint_file_actor)
+        self.policy.actor.load_state_dict(checkpoint['actor_state_dict'])
+        self.policy.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        
+
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):
