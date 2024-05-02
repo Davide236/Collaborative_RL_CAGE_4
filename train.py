@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 EPISODE_LENGTH = 500
 MAX_EPS = 1500
-LOAD_NETWORKS = True
+LOAD_NETWORKS = False
 LOAD_BEST = False
 ROLLOUT = 5
 
@@ -56,6 +56,7 @@ def main():
             }
             actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
             messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
+            print(actions)
             # Perform action on the environment
             observations, reward, termination, truncation, _ = env.step(actions, messages=messages)
             # Append the rewards and termination for each agent
