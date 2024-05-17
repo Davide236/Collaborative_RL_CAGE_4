@@ -91,7 +91,7 @@ class PPO:
     def init_hyperparameters(self, episodes):
         self.epochs = 10
         self.gamma = 0.99 # Discount factor
-        self.clip = 0.2 # Clipping value: 0.2 is the value recommended by the paper.
+        self.clip = 0.1 # Clipping value: 0.2 is the value recommended by the paper.
         self.lr = 2.5e-4 # Learning rate of optimizer
         self.eps = 1e-5 # Epsilon value of optimizer to improve stability
         self.gae_lambda = 0.95 # General advantage estimation
@@ -99,7 +99,7 @@ class PPO:
         self.entropy_coeff = 0.01 # Entropy coefficient
         self.value_coefficient = 0.5 # State value coeff for loss calculation
         self.max_grad_norm = 0.5 # Gradient clipping value
-        self.minibatch_number = 1 
+        self.minibatch_number = 1
         self.target_kl = 0.02 # 0.02 is also an option here
 
     # Initialize the rollout memory

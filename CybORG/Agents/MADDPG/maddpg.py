@@ -26,10 +26,47 @@ class MADDPG:
         return actions
     
     def learn(self, memory):
-        for agent in self.agents:
-            agent.learn(memory, self.agents)
+        if not memory.ready():
+            print("Memory not ready")
+            return
+        else:
+            print("Learning....")
+        sample = memory.sample_buffer()
+        # Observations samples
+        central_obs = T.concat(sample['obs'], axis = 1)
+        new_central_obs = T.concat(sample['new_obs'], axis=1)
 
-    def learn_second(self, memory):
-        # New function here
-        pass
+        # Actions under the target network with the 'next' observations 
+        target_actions = [
+            self.agents[i].target_actions(sample['new_obs'][i])
+            for i in range(self.n_agents)
+        ]
+
+        target_actions_one_hot = [
+            F.one_hot(target_actions[i], num_classes=self.agents[i].n_actions)
+            for i in range(self.n_agents)
+        ]
+
+        sample_actions_one_hot = [
+            F.one_hot(sample['actions'][i].to(T.int64), num_classes=self.agents[i].n_actions)
+            for i in range(self.n_agents)
+        ]
+        rewards = sample['rewards']
+        dones = sample['dones']
+        for i, agent in enumerate(self.agents):
+            agent.learn_critic(
+                obs = central_obs,
+                new_obs = new_central_obs,
+                target_actions = target_actions_one_hot,
+                sample_actions = sample_actions_one_hot,
+                rewards = rewards[i].unsqueeze(dim=1),
+                dones = dones[i].unsqueeze(dim=1)
+            )
+            agent.learn_actor(
+                obs = central_obs,
+                agent_obs = sample['obs'][i],
+                sampled_actions = sample_actions_one_hot
+            )
+        for agent in self.agents:
+            agent.update_network_parameters()
     

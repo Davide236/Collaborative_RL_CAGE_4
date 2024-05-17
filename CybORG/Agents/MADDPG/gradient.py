@@ -99,6 +99,7 @@ class GST(GradientEstimator):
         return m1, m2
 
     def __call__(self, logits, need_gradients=True):
+        OneHotCategorical.set_default_validate_args(False)
         DD = OneHotCategorical(logits=logits).sample()
         if need_gradients:
             m1, m2 = self._calculate_movements(logits, DD)
