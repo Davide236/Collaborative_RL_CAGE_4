@@ -16,11 +16,13 @@ def main():
     count = 0
     i = 0
     learn_goal = 0
-    while count < 20000:
+    # TODO: Check catastrofic forgetting after 60/70 k episodes
+    while count < 200000:
         observation, _ = env.reset()
+        total_reward = 0
         # Step 1: Reset Hidden State at each episode
         agent.set_initial_state(1)
-        total_reward = 0
+        # This reset the hidden state to 0s (redoundant with the set_initial_state)
         terminal = torch.ones(1)
         for _ in range(EPISODE_LENGTH):
             learn_goal += 1
@@ -29,7 +31,7 @@ def main():
             agent.save_lstm_state()
             # Step 3: Collect partial trajectories based on obs and hidden state
             action = agent.get_action(observation, terminal)
-            observation, reward, terminated, truncated, info = env.step(action)
+            observation, reward, terminated, truncated, _ = env.step(action)
             agent.save_rollout_data(reward, terminated)
             terminal = torch.tensor(terminated).float()
             total_reward += reward
@@ -38,9 +40,10 @@ def main():
         i += 1
         agent.append_episodic()
         rewards.append(total_reward)
-        if learn_goal >= 100:
+        #print(f'Finished episode with total count: {count}, reward: {total_reward}, AVG: {numpy.array(rewards).mean()}')
+        if learn_goal >= 500:
             # Print the average reward obtained before rollout!
-            print(f"Learning in {learn_goal} steps - AVG REW: {numpy.array(rewards).mean()}")
+            print(f"Learning in {learn_goal} steps. Total Count: {count} - AVG REW: {numpy.array(rewards).mean()}")
             learning_steps += 1
             agent.learn(count) 
             learn_goal = 0

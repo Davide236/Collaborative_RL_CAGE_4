@@ -89,6 +89,7 @@ class PPO:
         self.critic_cell_states = []
         # Memory used to compute the state value in a different way
         self.state_val_mem_final = []
+        self.value_mem_other = []
         # Initialize episodic memory
         self.init_episodic_memory()
     
@@ -119,6 +120,8 @@ class PPO:
         del self.critic_hidden_states[:]
         del self.critic_cell_states[:]
         del self.state_val_mem_final[:]
+        #
+        del self.value_mem_other[:]
 
     
     # Save the episodic memory to the rollout memory
@@ -137,6 +140,8 @@ class PPO:
         vals, _, _ = self.evaluate(torch.cat(self.episodic_state), torch.cat(self.episodic_acts))
         self.state_val_mem_final.append(vals)
         self.state_val_mem.append(self.episodic_state_val[:])
+        #
+        self.value_mem_other.append(torch.cat(self.episodic_state_val[:]))
 
         self.clear_episodic()
         
@@ -152,7 +157,7 @@ class PPO:
         del self.episodic_hidden_states[:]
         del self.episodic_critic_hidden[:]
         del self.episodic_critic_cells[:]
-    
+
     # Save the current recurrent cells
     def save_lstm_state(self):
         self.episodic_hidden_states.append(self.actor.hidden_cell[0].squeeze(0).detach())
@@ -216,9 +221,12 @@ class PPO:
                 # Save the advantage to be used in the next calculation
                 last_advantage = advantage
                 advantages.append(advantage)
+            # TODO: Change this
+
             batch_advantage.append(torch.cat(advantages, dim=0).squeeze())
         # Return list of advantages (padded)
-        advantage_list = pad_sequence(batch_advantage, batch_first=True, padding_value=0) 
+        reversed_tensor_array = [torch.flip(tensor, dims=[0]) for tensor in batch_advantage]
+        advantage_list = pad_sequence(reversed_tensor_array, batch_first=True, padding_value=0) 
         return advantage_list
     
     # Save the different loss parameters
@@ -238,11 +246,8 @@ class PPO:
         critic_cell_states = pad_sequence(self.critic_cell_states, batch_first=True, padding_value=0)
         terminal_list = [torch.tensor([1.0 if value else 0.0 for value in seq]) for seq in self.terminal_mem]
         terminal = torch.cat(terminal_list, dim=0)
-        # values = []
-        # for arr in self.state_val_mem_final:
-        #     vals = torch.cat(arr, dim=0)
-        #     values.append(vals)
         state_values = pad_sequence(self.state_val_mem_final, batch_first=True, padding_value=0).squeeze()
+        #state_values = pad_sequence(self.value_mem_other, batch_first=True, padding_value=0).squeeze()
         return obs, acts, logprob, actor_hidden_states, actor_cell_states,\
                 critic_hidden_states, critic_cell_states, terminal, state_values
     
@@ -267,13 +272,10 @@ class PPO:
         # Normalize the advantage
         A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
         # Reduce learning rate
-        self.anneal_lr(total_steps)
+        #self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs
-        for _ in range(self.epochs):
+        for i in range(self.epochs):
             # Process each sequence 
-            avg_kl = 0
-            critic_loss = 0
-            actor_loss = 0
             # Split data into episodes - This can be done also through sequences (within a single episode, divided into multiple sequences)
             # TODO: I am not sure that this specific part is right, I will need to look further into how the hidden cells are reconstructed
             for i in range(counter):
@@ -296,30 +298,28 @@ class PPO:
                 ratios = torch.exp(logrations)
                 approx_kl = ((ratios - 1) - logrations).mean()
                 # Add to the KL divergence (for each episode)
-                avg_kl += approx_kl
                 actor_loss1 = ratios*mini_advantage
                 actor_loss2 = torch.clamp(ratios, 1-self.clip, 1+self.clip)*mini_advantage
                 actor_loss = (-torch.min(actor_loss1,actor_loss2)).mean()
-                # TODO: Since each episode is processed individually, add their total loss together before propagation
-                actor_loss += actor_loss - entropy_loss*self.entropy_coeff
+                # Calculate Actor loss with formula
+                actor_loss = actor_loss - entropy_loss*self.entropy_coeff
                 # Critic loss following the formula
-                critic_loss += nn.MSELoss()(mini_state_values, mini_rtgs)
-            # With the total calculated loss for all the episode, propagate the loss through the graph
-            self.actor_optimizer.zero_grad()
-            actor_loss.backward()
-            # Gradient clipping for the networks (L2 Normalization)
-            nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-            self.actor_optimizer.step()
-            self.critic_optimizer.zero_grad()
-            critic_loss.backward()
-            # Gradient clipping for the networks (L2 Normalization)
-            nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
-            self.critic_optimizer.step()
+                critic_loss = nn.MSELoss()(mini_state_values, mini_rtgs)
+                # With the total calculated loss for all the episode, propagate the loss through the graph
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                # Gradient clipping for the networks (L2 Normalization)
+                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+                self.actor_optimizer.step()
+                self.critic_optimizer.zero_grad()
+                critic_loss.backward()
+                # Gradient clipping for the networks (L2 Normalization)
+                nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+                self.critic_optimizer.step()
             # Check if the update was too large
-            avg_kl /= counter
             # If this is true, it means that the update is too large - Usually means that there is an error in implementation or parameters
-            if avg_kl > self.target_kl:
-                print(f"Breaking Here: {avg_kl}")
+            if approx_kl > self.target_kl:
+                print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
         self.clear_rollout_memory()
