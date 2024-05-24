@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 # This actor-critic implementation follows the implementation of: https://gitlab.com/ngoodger/ppo_lstm/-/blob/master/recurrent_ppo.ipynb
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, init_log_std_dev=None):
+    def __init__(self, state_dim, action_dim):
         super().__init__()
         self.hidden_size = 128
         self.recurrent_layers = 1
@@ -14,7 +14,6 @@ class Actor(nn.Module):
         self.layer_hidden = nn.Linear(self.hidden_size, self.hidden_size)
         self.layer_policy_logits = nn.Linear(self.hidden_size, action_dim)
         self.action_dim = action_dim
-        self.log_std_dev = nn.Parameter(init_log_std_dev * torch.ones((action_dim), dtype=torch.float), requires_grad=False)
         self.hidden_cell = None
     
     # Initial hidden state of size 1   
@@ -22,13 +21,10 @@ class Actor(nn.Module):
         self.hidden_cell = (torch.zeros(self.recurrent_layers, batch_size, self.hidden_size),
                             torch.zeros(self.recurrent_layers, batch_size,self.hidden_size))
         
-    def forward(self, state, terminal=None):
+    def forward(self, state):
         batch_size = state.shape[0] # Always = 1
         if self.hidden_cell is None or batch_size != self.hidden_cell[0].shape[1]:
             self.get_init_state(batch_size)
-        if terminal is not None:
-            # Reset cells to 0 if we reached a terminal value
-            self.hidden_cell = [value * (1.0 - terminal).reshape(1, batch_size, 1) for value in self.hidden_cell]
         state = state.unsqueeze(0)
         # Set new hidden state cell (send to lstm layer the old hidden cell)
         _, self.hidden_cell = self.lstm(state, self.hidden_cell)
@@ -53,12 +49,10 @@ class Critic(nn.Module):
         self.hidden_cell = (torch.zeros(self.recurrent_layers, batch_size, self.hidden_size),
                             torch.zeros(self.recurrent_layers, batch_size, self.hidden_size))
     
-    def forward(self, state, terminal=None):
+    def forward(self, state):
         batch_size = state.shape[0]
         if self.hidden_cell is None or batch_size != self.hidden_cell[0].shape[1]:
             self.get_init_state(batch_size)
-        if terminal is not None:
-            self.hidden_cell = [value * (1.0 - terminal).reshape(1, batch_size, 1) for value in self.hidden_cell]
         state = state.unsqueeze(0)
         # Set new hidden state cell (send to lstm layer the old hidden cell)
         _, self.hidden_cell = self.layer_lstm(state, self.hidden_cell)
