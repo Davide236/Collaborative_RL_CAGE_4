@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 2000
-LOAD_NETWORKS = True
+MAX_EPS = 4000
+LOAD_NETWORKS = False
 LOAD_BEST = False
-ROLLOUT = 5
+ROLLOUT = 10
 
 def concatenate_observations(observations, agents):
     observation_list = []
@@ -45,7 +45,6 @@ def main():
     env.reset()
     lr = 2.5e-4 # Learning rate of optimizer
     eps = 1e-5
-    five_ep_avg = [-5000] * 5 
     centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5, lr, eps)
     agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic) for agent in range(5)}
     print(f'Using agents {agents}')
@@ -59,7 +58,7 @@ def main():
     total_rewards = [] 
     count = 0 # Keep track of total episodes
     partial_rewards = 0
-    best_reward = -1300
+    best_reward = -2000
     average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
@@ -80,7 +79,7 @@ def main():
                 if agent_name in env.agents
             }
             actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
-            messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
+            # messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
             # Perform action on the environment
             observations, reward, termination, truncation, _ = env.step(actions) #, messages=messages)
 
@@ -102,16 +101,15 @@ def main():
             if all(done.values()):
                 break
             r.append(mean(reward.values())) # Add rewards  
-        print(f"Final reward of the episode: {sum(r)}, length {count}")
         # Add to partial rewards  
         partial_rewards += sum(r)
         total_rewards.append(sum(r))
+        print(f"Final reward of the episode: {sum(r)}, length {count} - AVG: {mean(total_rewards)}")
         # Print average reward before rollout
         if (i+1) % ROLLOUT == 0:
             avg_rwd = partial_rewards/ROLLOUT
             average_rewards.append(avg_rwd)
             print(f"Average reward obtained before update: {avg_rwd}")
-            add_value(five_ep_avg, avg_rwd)
             # If the average reward is better than the best reward then save agents
             if avg_rwd > best_reward:
                 best_reward = avg_rwd
@@ -119,10 +117,6 @@ def main():
                     agent.save_network()
                     centralized_critic.save_network()
             partial_rewards = 0 
-        if np.mean(five_ep_avg) >= -1700:
-            print(five_ep_avg)
-            print(np.mean(five_ep_avg))
-            break
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
             agent.rewards_mem.append(agent.episodic_rewards[:])
