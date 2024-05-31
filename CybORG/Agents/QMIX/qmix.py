@@ -39,8 +39,14 @@ class QMix():
     def train(self, batch):
         q_evals, q_targets, rewards, terminated = [], [], [], []
         for i in range(len(batch)):
+            # TODO: Possible error in processing the batch
             state = batch[i]['obs']
             next_state = batch[i]['obs_next']
+            #### Concatenate the states together (to get central state)
+            permuted_tensor = state.permute(1, 0, 2)
+            central_state = permuted_tensor.reshape(25, -1)
+            permuted_tensor = next_state.permute(1, 0, 2)
+            central_state_next = permuted_tensor.reshape(25, -1)
             # CHECK
             rwrd = batch[i]['rewards']
             term = batch[i]['dones']
@@ -55,12 +61,14 @@ class QMix():
             agent_qs = [agent(state[j]) for j, agent in enumerate(self.agent_networks)]
             agent_qs = torch.stack(agent_qs, dim=1)
             agent_qs = agent_qs.gather(2, episode_actions.unsqueeze(-1)).squeeze(-1)
-            q_total_eval = self.qmix_net_eval(agent_qs, state)
+            # TODO: Change here - This should be joint state
+            q_total_eval = self.qmix_net_eval(agent_qs, central_state)
             # Compute target Q_value (and optimal action) given target network
             target_qs = [agent(next_state[j]) for j, agent in enumerate(self.target_agent_networks)]
             target_qs = torch.stack(target_qs, dim=1)
             target_qs = target_qs.max(dim=-1)[0]
-            q_total_target = self.qmix_net_target(target_qs, next_state)
+            # TODO: Change here - This should be joint state
+            q_total_target = self.qmix_net_target(target_qs, central_state_next)
             q_evals.append(q_total_eval)
             q_targets.append(q_total_target)
             # Save both Q Values

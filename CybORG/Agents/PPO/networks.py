@@ -28,12 +28,10 @@ class ActorCritic(nn.Module):
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, eps=eps)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr, eps=eps)
 
-    def action_selection(self, state, action_mask):
+    def action_selection(self, state):
         """
         Args: 
             state: The current observation state of the agent.
-            action_mask: List of boolean for each action the agent can take. Invalid actions
-                        are marked as false and therefore avoided by the agent
 
         Returns:
             action: an action sampled from the action distribution

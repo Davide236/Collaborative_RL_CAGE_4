@@ -1,4 +1,5 @@
 from CybORG.Agents.PPO.networks import ActorCritic
+from CybORG.Agents.Messages.message_handler import MessageHandler
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
@@ -8,7 +9,7 @@ import os
 import csv
 
 class PPO:
-    def __init__(self, state_dimension, action_dimension, total_episodes, number):
+    def __init__(self, state_dimension, action_dimension, total_episodes, number, messages):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
         self.init_rollout_memory()
@@ -16,9 +17,12 @@ class PPO:
         self.init_check_memory(number)
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
+        self.use_messages = messages
+        self.message_handler = MessageHandler()
+        self.agent_number = number
     
     
-    def get_action(self, state, action_mask):
+    def get_action(self, state):
         """
         Args:
             state: The current observation state of the agent.
@@ -31,16 +35,18 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
+        message = []
+        if self.use_messages:
+            message = self.message_handler.extract_subnet_info(state, self.agent_number)
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob, state_value = self.policy.action_selection(state, action_mask) # Under the old policy
+        action, logprob, state_value = self.policy.action_selection(state) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.observation_mem.append(state) 
         self.logprobs_mem.append(logprob)
         self.actions_mem.append(action) 
-        self.action_mask_mem.append(action_mask)
         self.episodic_state_val.append(state_value) 
-        return action.item() #, logprob, state_value# TODO: action.detach().numpy()
+        return action.item(), message
     
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):

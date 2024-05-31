@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 
 EPISODE_LENGTH = 500
 MAX_EPS = 750
-LOAD_NETWORKS = True
+LOAD_NETWORKS = False
 LOAD_BEST = False
+MESSAGES = True
 ROLLOUT = 10
 
 def main():
@@ -25,7 +26,7 @@ def main():
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
     # TODO: Check for 'Labels' and 'Mask' in the action space
-    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent) for agent in range(5)}
+    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, MESSAGES) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
         for agent_name, agent in agents.items():
@@ -38,7 +39,7 @@ def main():
     count = 0 # Keep track of total episodes
     partial_rewards = 0
     avg = 0
-    best_reward = -1200
+    best_reward = -2000
     average_rewards = []
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
@@ -47,16 +48,22 @@ def main():
         for j in range(EPISODE_LENGTH): # Episode length
             count += 1
             # Action selection for all agents
-            actions = {
+            actions_messages = {
                 agent_name: agent.get_action(
-                    observations[agent_name],
-                    env.action_mask(agent_name)
+                    observations[agent_name]
                 )
                 for agent_name, agent in agents.items() 
                 if agent_name in env.agents
             }
+            actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
+            messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
+
             # Perform action on the environment
-            observations, reward, termination, truncation, _ = env.step(actions)
+            if MESSAGES:
+                print(messages)
+                observations, reward, termination, truncation, _ = env.step(actions, messages=messages)
+            else:
+                observations, reward, termination, truncation, _ = env.step(actions)
 
             # Append the rewards and termination for each agent
             for agent_name, agent in agents.items():
@@ -68,9 +75,6 @@ def main():
                 agent: termination.get(agent, False) or truncation.get(agent, False)
                 for agent in env.agents
             }
-            #for agent in env.agents:
-                #continue
-                #print(f"Agent: {agent} made action: {env.get_last_action(agent)}")
             # If all agents are done (truncation) then end the episode
             if all(done.values()):
                 break
