@@ -60,7 +60,6 @@ def main():
 
             # Perform action on the environment
             if MESSAGES:
-                print(messages)
                 observations, reward, termination, truncation, _ = env.step(actions, messages=messages)
             else:
                 observations, reward, termination, truncation, _ = env.step(actions)

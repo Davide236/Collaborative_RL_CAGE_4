@@ -52,6 +52,15 @@ class MessageHandler:
             message[i] = int(bit)
         return message
     
+
+    def action_messages(self, action_number):
+        binary_str = bin(action_number)[2:]
+        padded_binary_str = binary_str.zfill(8)
+        # Convert the string to a list of integers
+        binary_array = [int(bit) for bit in padded_binary_str]
+    
+        return np.array(binary_array)
+    
     # Function to extract information for each subnet
     def extract_subnet_info(self, observation_vector, number):
         total_subnets = 1
