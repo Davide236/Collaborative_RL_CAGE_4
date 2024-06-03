@@ -14,7 +14,7 @@ class ReplayBuffer:
 
         #self.batch_size = batch_size
         
-        self.batch_size = 10
+        self.batch_size = 10 # 10 Episodes in Batch
         self.obs_dims = obs_dims
         self.max_obs_dim = np.max(obs_dims)
         self.n_agents = len(obs_dims)

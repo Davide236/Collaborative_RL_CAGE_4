@@ -20,7 +20,7 @@ class QMixNet(nn.Module):
 
     def __init__(self, n_agents: int, state_shape: int):
         super(QMixNet, self).__init__()
-        self.qmix_hidden_dim = 32
+        self.qmix_hidden_dim = 128
         self.n_agents = n_agents
         self.state_shape = state_shape
         #print(f'QMIXnet. Agents: {n_agents}, total central space: {state_shape}')
@@ -32,7 +32,8 @@ class QMixNet(nn.Module):
                                       nn.ReLU(),
                                       nn.Linear(self.qmix_hidden_dim, 1)
                                       )
-
+    
+    # TODO: Check this as well
     def forward(self, q_values, states):
         # The shape of states is (batch_size, max_episode_len, state_shape).
         # The passed q_values are three-dimensional, with a shape of (batch_size, max_episode_len, n_agents).

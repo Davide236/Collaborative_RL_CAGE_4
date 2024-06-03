@@ -38,7 +38,7 @@ def run():
     agents = QMix(n_agents=n_agents, n_actions=n_actions,obs_space=actor_dims,state_space=sum(actor_dims))
     MAX_STEPS = 500000
     avg_rewd = []
-
+    training_steps = 0
     total_steps = 0
     episode = 0
 
@@ -73,7 +73,8 @@ def run():
         if second_memory.ready():
             #print("LEARNING")
             sample = second_memory.sample()
-            agents.train(sample)
+            training_steps += 1
+            agents.train(sample, training_steps)
         episode += 1
         total_steps += steps
         # if memory.get_memory_real_size() >= 10:

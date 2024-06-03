@@ -6,16 +6,19 @@ import random
 
 from qmix_net import QMixNet, AgentNetwork
 
+# P.S: Something like this can be done for GPU/CPU
 
+# if GPU:
+#     device = torch.device("cuda:" + str(device_idx) if torch.cuda.is_available() else "cpu")
+# else:
+#     device = torch.device("cpu")
+
+# TODO: A bit different since each agent has their total number of actions
 class QMix():
 
     def __init__(self, n_agents, n_actions, obs_space, state_space):
         # TODO: Init Hyperparams method
-        self.gamma = 0.99
-        self.lr = 2.5e-4
-        self.grad_norm_clip = 0.5
-        self.epsilon = 0.5
-        self.target_update_cycle = 1
+        self.init_hyperparams()
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.obs_space = obs_space
@@ -29,65 +32,72 @@ class QMix():
         self.mixing_optimizer = torch.optim.Adam(self.qmix_net_eval.parameters(), lr=self.lr)
         
         #self.device = torch.device('cpu')
-
+    
+    def init_hyperparams(self):
+        # TODO: Change this
+        self.episode_length = 25
+        self.gamma = 0.99
+        self.lr = 2.5e-4
+        self.grad_norm_clip = 0.5
+        self.epsilon = 0.1
+        self.update_interval = 10
+    
     def update_target_networks(self):
         for i in range(self.n_agents):
             self.target_agent_networks[i].load_state_dict(self.agent_networks[i].state_dict())
         self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
-         
+
+    def process_batch(self, batch):
+        # TODO: Check processing of batch
+        state = batch['obs']
+        next_state = batch['obs_next']
+        # Concatenate the states together (to get central state)
+        permuted_tensor = state.permute(1, 0, 2)
+        central_state = permuted_tensor.reshape(self.episode_length, -1)
+        permuted_tensor = next_state.permute(1, 0, 2)
+        central_state_next = permuted_tensor.reshape(self.episode_length, -1)
+        # Get reward and termination for the state
+        rwrd = batch['rewards']
+        term = batch['dones']
+        # Get and transpose the actions
+        actions = batch['actions'].long()
+        transposed_tensor = actions.t()
+        episode_actions = transposed_tensor#.unsqueeze(-1)
+        # Compute the Q Value given the network and the chosen actions
+        agent_qs = [agent(state[j]) for j, agent in enumerate(self.agent_networks)]
+        agent_qs = torch.stack(agent_qs, dim=1)
+        # Target Q Value evaluated also based on the actions taken
+        agent_qs = agent_qs.gather(2, episode_actions.unsqueeze(-1)).squeeze(-1)
+        # Evaluate central state and Q Value
+        q_total_eval = self.qmix_net_eval(agent_qs, central_state)
+        # Compute target Q_value (and optimal action) given target network
+        target_qs = [agent(next_state[j]) for j, agent in enumerate(self.target_agent_networks)]
+        target_qs = torch.stack(target_qs, dim=1)
+        target_qs = target_qs.max(dim=-1)[0]
+        q_total_target = self.qmix_net_target(target_qs, central_state_next)
+        return q_total_eval, q_total_target, rwrd, term
+
     # TODO: Check this update function
-    def train(self, batch):
+    def train(self, batch, count):
         q_evals, q_targets, rewards, terminated = [], [], [], []
         for i in range(len(batch)):
-            # TODO: Possible error in processing the batch
-            state = batch[i]['obs']
-            next_state = batch[i]['obs_next']
-            #### Concatenate the states together (to get central state)
-            permuted_tensor = state.permute(1, 0, 2)
-            central_state = permuted_tensor.reshape(25, -1)
-            permuted_tensor = next_state.permute(1, 0, 2)
-            central_state_next = permuted_tensor.reshape(25, -1)
-            # CHECK
-            rwrd = batch[i]['rewards']
-            term = batch[i]['dones']
+            q_total_eval, q_total_target, rwrd, term = self.process_batch(batch[i])
             terminated.append(term)
             rewards.append(rwrd)
-            ###
-            # Get and transpose the actions
-            actions = batch[i]['actions'].long()
-            transposed_tensor = actions.t()
-            episode_actions = transposed_tensor#.unsqueeze(-1)
-            # Compute the Q Value given the network and the chosen actions
-            agent_qs = [agent(state[j]) for j, agent in enumerate(self.agent_networks)]
-            agent_qs = torch.stack(agent_qs, dim=1)
-            agent_qs = agent_qs.gather(2, episode_actions.unsqueeze(-1)).squeeze(-1)
-            # TODO: Change here - This should be joint state
-            q_total_eval = self.qmix_net_eval(agent_qs, central_state)
-            # Compute target Q_value (and optimal action) given target network
-            target_qs = [agent(next_state[j]) for j, agent in enumerate(self.target_agent_networks)]
-            target_qs = torch.stack(target_qs, dim=1)
-            target_qs = target_qs.max(dim=-1)[0]
-            # TODO: Change here - This should be joint state
-            q_total_target = self.qmix_net_target(target_qs, central_state_next)
             q_evals.append(q_total_eval)
             q_targets.append(q_total_target)
-            # Save both Q Values
-            # q_evals.append(agent_qs)
-            # q_targets.append(target_qs)
+
         q_evals = torch.stack(q_evals, dim=1)
         q_targets = torch.stack(q_targets, dim=1)
         ## CHECK
-        q_evals = q_evals.view(5, 25, 1)
-        q_targets = q_targets.view(5, 25, 1)
+        q_evals = q_evals.view(5, self.episode_length, 1)
+        q_targets = q_targets.view(5, self.episode_length, 1)
         #
         rewards = torch.stack(rewards, dim=1)
-        rewards = rewards[0].view(5,25,1)
+        rewards = rewards[0].view(5,self.episode_length,1)
         dones = torch.stack(terminated, dim=1)
-        dones = dones[0].view(5,25,1)
-        #print(rewards)
-        #print(f'Dones shape: {dones.shape}')
-        #print(f'Shape of Q Eval: {q_evals.shape}')
-        # Shape: 25,5,1,1 -> Probably the best shape is 5,25,1
+        dones = dones[0].view(5,self.episode_length,1)
+        ##
         targets = rewards + self.gamma * q_targets * dones
         td_error = (q_evals - targets.detach())
         masked_td_error = dones * td_error
@@ -102,8 +112,9 @@ class QMix():
         self.mixing_optimizer.step()
         for opt in self.agent_optimizers:
             opt.step()
-        # TODO: Do this only in specific intervals
-        self.update_target_networks()
+        # TODO: Check how many intervals should be used
+        if count % self.update_interval:
+            self.update_target_networks()
         
         
         
@@ -116,8 +127,11 @@ class QMix():
         actions = []
         for i, agent in enumerate(self.agent_networks):
             obs = observations[i]
+            # In this case the Q_Value is based only on the state
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
+            # TODO: Check this
             if random.random() < self.epsilon:
+                # Or Should I sample from Categorical?
                 action = random.randint(0, q_value.shape[0]-1)
             else:
                 action = torch.argmax(q_value).item()
