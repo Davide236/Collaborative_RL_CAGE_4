@@ -1,8 +1,8 @@
 from CybORG import CybORG
 from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
-from CybORG.Agents.PPO.ppo import PPO
-from CybORG.Agents.MAPPO.critic_network import CriticNetwork
+from CybORG.Agents.R_MAPPO.r_mappo import PPO
+from CybORG.Agents.R_MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 import numpy as np
@@ -40,7 +40,7 @@ def main():
     lr = 2.5e-4 # Learning rate of optimizer
     eps = 1e-5
     centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5)
-    critic_optimizer = torch.optim.Adam(centralized_critic, lr=2.5e-4)
+    critic_optimizer = torch.optim.Adam(centralized_critic.parameters(), lr=lr)
     agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic, critic_optimizer) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
@@ -63,9 +63,11 @@ def main():
         centralized_critic.get_init_state(1)
         r = []
         for j in range(EPISODE_LENGTH): # Episode length
+            for agent_name, agent in agents.items():
+                agent.save_lstm_state()
             count += 1
             observations_list = concatenate_observations(observations, agents)
-            state_value = centralized_critic.get_state_value(observations_list)
+            state_value = centralized_critic(observations_list)
             # Action selection for all agents
             actions = {
                 agent_name: agent.get_action(
@@ -114,9 +116,7 @@ def main():
             partial_rewards = 0 
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
-            agent.rewards_mem.append(agent.episodic_rewards[:])
-            agent.state_val_mem.append(agent.episodic_state_val[:])
-            agent.terminal_mem.append(agent.episodic_termination[:])
+            agent.append_episodic()
             agent.clear_episodic()
             # Every 5 episodes perform a policy update
             if (i+1) % ROLLOUT == 0:

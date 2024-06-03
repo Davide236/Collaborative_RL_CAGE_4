@@ -4,11 +4,12 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import numpy as np
 
-class Critic(nn.Module):
+class CriticNetwork(nn.Module):
     def __init__(self,large_state_dim,small_state_dim, n_agents):
-        super().__init__()
+        super(CriticNetwork, self).__init__()
         self.hidden_size = 256
         self.recurrent_layers = 1
+        # TODO: Change this
         self.state_dim = large_state_dim + (small_state_dim)*(n_agents-1)
         # Create 1 Layer of LSTM
         self.lstm = nn.LSTM(self.state_dim, self.hidden_size, batch_first=True)

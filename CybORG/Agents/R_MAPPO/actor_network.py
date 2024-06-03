@@ -6,7 +6,7 @@ import numpy as np
 
 class ActorNetwork(nn.Module):
     def __init__(self, state_dim, action_dim):
-        super(ActorNetwork).__init__()
+        super().__init__()
         self.hidden_size = 256
         self.recurrent_layers = 1
         # Create 1 Layer of LSTM

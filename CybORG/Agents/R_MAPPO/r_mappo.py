@@ -1,4 +1,4 @@
-from CybORG.Agents.MAPPO.actor_network import ActorNetwork
+from CybORG.Agents.R_MAPPO.actor_network import ActorNetwork
 from torch.distributions import Categorical
 from torch.nn.utils.rnn import pad_sequence
 
@@ -19,7 +19,7 @@ class PPO:
         # Save the number of the agent
         self.agent_number = number
         # Initialize actor and critic network
-        self.actor = ActorNetwork(state_dimension, action_dimension, self.lr, self.eps)
+        self.actor = ActorNetwork(state_dimension, action_dimension)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         # Initialize critic
         self.critic = critic
@@ -118,6 +118,10 @@ class PPO:
         self.terminal_mem = [] 
         self.logprobs_mem = []
         self.state_val_mem = [] 
+        self.actor_hidden_states = []
+        self.actor_cell_states = []
+        self.critic_hidden_states = []
+        self.critic_cell_states = []
         # Memory used to compute the state value in a different way
         self.state_val_mem_final = []
         self.value_mem_other = []
@@ -135,6 +139,10 @@ class PPO:
         self.episodic_acts = []
         self.episodic_logprobs = []
         self.episodic_global_observations_mem = []
+        self.episodic_hidden_states = []
+        self.episodic_hidden_cells = []
+        self.episodic_critic_hidden = []
+        self.episodic_critic_cells = []
     
     # Clear the rollout memory
     def clear_rollout_memory(self):
@@ -144,7 +152,12 @@ class PPO:
         del self.terminal_mem[:]
         del self.logprobs_mem[:]
         del self.state_val_mem[:]
+        del self.actor_hidden_states[:]
+        del self.actor_cell_states[:]
+        del self.critic_hidden_states[:]
+        del self.critic_cell_states[:]
         del self.global_observations_mem[:]
+        del self.state_val_mem_final[:]
     
     # Clear the episodic memory
     def clear_episodic(self):
@@ -154,6 +167,10 @@ class PPO:
         del self.episodic_state[:]
         del self.episodic_acts[:]
         del self.episodic_logprobs[:]
+        del self.episodic_hidden_cells[:]
+        del self.episodic_hidden_states[:]
+        del self.episodic_critic_hidden[:]
+        del self.episodic_critic_cells[:]
         del self.episodic_global_observations_mem[:]
      
     
@@ -168,16 +185,22 @@ class PPO:
         """
         frac = (steps-1)/self.max_episodes
         new_lr = self.lr * (1-frac)
-        self.actor.actor_optimizer.param_groups[0]["lr"] = new_lr
-        self.critic.critic_optimizer.param_groups[0]["lr"] = new_lr
+        self.actor_optimizer.param_groups[0]["lr"] = new_lr
+        self.critic_optimizer.param_groups[0]["lr"] = new_lr
 
     def append_episodic(self):
         self.rewards_mem.append(self.episodic_rewards[:])
+        self.state_val_mem.append(self.episodic_state_val[:])
         self.terminal_mem.append(self.episodic_termination[:])
         self.observation_mem.append(torch.cat(self.episodic_state[:]))
+        self.state_val_mem_final.append(torch.cat(self.episodic_state_val[:]))
         self.actions_mem.append(torch.cat(self.episodic_acts[:]))
         self.logprobs_mem.append(torch.cat(self.episodic_logprobs[:]))
         self.global_observations_mem.append(torch.cat(self.episodic_global_observations_mem[:]))
+        self.actor_hidden_states.append(torch.cat(self.episodic_hidden_states[:]))
+        self.actor_cell_states.append(torch.cat(self.episodic_hidden_cells[:]))
+        self.critic_hidden_states.append(torch.cat(self.episodic_critic_hidden[:]))
+        self.critic_cell_states.append(torch.cat(self.episodic_critic_cells[:]))
         self.clear_episodic()
     
     def evaluate(self, global_obs, observations, actions, sequence_length):
@@ -235,10 +258,24 @@ class PPO:
         global_obs = pad_sequence(self.global_observations_mem, batch_first=True, padding_value=0)
         terminal_list = [torch.tensor([1.0 if value else 0.0 for value in seq]) for seq in self.terminal_mem]
         terminal = torch.cat(terminal_list, dim=0)
-        # state_values = pad_sequence(self.state_val_mem_final, batch_first=True, padding_value=0).squeeze()
-        state_values = pad_sequence(self.value_mem_other, batch_first=True, padding_value=0).squeeze()
-        return obs, acts, logprob, terminal, state_values, global_obs
+        state_values = pad_sequence(self.state_val_mem_final, batch_first=True, padding_value=0).squeeze()
+        actor_hidden_states = pad_sequence(self.actor_hidden_states, batch_first=True, padding_value=0)
+        actor_cell_states = pad_sequence(self.actor_cell_states, batch_first=True, padding_value=0)
+        critic_hidden_states = pad_sequence(self.critic_hidden_states, batch_first=True, padding_value=0)
+        critic_cell_states = pad_sequence(self.critic_cell_states, batch_first=True, padding_value=0)
+        # Added this
+        actor_hidden_states = actor_hidden_states[:, 0, :].unsqueeze(0)
+        actor_cell_states = actor_cell_states[:, 0, :].unsqueeze(0)
+        critic_hidden_states = critic_hidden_states[:, 0, :].unsqueeze(0)
+        critic_cell_states = critic_cell_states[:, 0, :].unsqueeze(0)
+        return obs, acts, logprob, terminal, global_obs, state_values, actor_hidden_states, actor_cell_states, critic_hidden_states, critic_cell_states
     
+
+    def save_lstm_state(self):
+        self.episodic_hidden_states.append(self.actor.recurrent_cell[0].squeeze(0).detach())
+        self.episodic_hidden_cells.append(self.actor.recurrent_cell[1].squeeze(0).detach())
+        self.episodic_critic_hidden.append(self.critic.recurrent_cell[0].squeeze(0).detach())
+        self.episodic_critic_cells.append(self.critic.recurrent_cell[1].squeeze(0).detach())
 
     def learn(self,total_steps):
         """
@@ -253,24 +290,16 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs, acts, logprob, terminal, global_obs = self.pad_memory()
+        obs, acts, logprob, terminal, global_obs, state_values, actor_hidden_states, actor_cell_states, critic_hidden_states, critic_cell_states = self.pad_memory()
         sequence_length = acts.shape[1]
-        step = terminal.size(0)
-        # TODO: Print here
-        acts = torch.tensor(self.actions_mem, dtype=torch.float)
-        logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()
-        action_mask = torch.tensor(self.action_mask_mem, dtype=torch.int)
-        step = acts.size(0)
-        index = np.arange(step)
         # Save Losses
         critic_loss = 0
         actor_loss = 0
         entropy_loss = 0
-        # Calculate the size of the minibatches
-        minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
         A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
-        state_values = self.critic(global_obs, sequence_length).squeeze()
+        # TODO: Check this
+        # state_values = self.critic(global_obs, sequence_length).squeeze()
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
@@ -285,8 +314,8 @@ class PPO:
         self.anneal_lr(total_steps)
         for i in range(self.epochs):
             # TODO: Check those
-            self.set_initial_state(1)
-            self.critic.get_init_state(1)
+            self.actor.recurrent_cell = (actor_hidden_states, actor_cell_states)
+            self.critic.recurrent_cell = (critic_hidden_states, critic_cell_states)
             # Get the data of the episode
             mini_obs = obs
             mini_acts = acts
