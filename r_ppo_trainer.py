@@ -1,7 +1,7 @@
 from CybORG import CybORG
 from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
-from CybORG.Agents.Recurrent_PPO.ppo2 import PPO
+from CybORG.Agents.R_IPPO.ppo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 

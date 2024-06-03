@@ -39,8 +39,9 @@ def main():
     env.reset()
     lr = 2.5e-4 # Learning rate of optimizer
     eps = 1e-5
-    centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5, lr, eps)
-    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic) for agent in range(5)}
+    centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5)
+    critic_optimizer = torch.optim.Adam(centralized_critic, lr=2.5e-4)
+    agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), MAX_EPS*EPISODE_LENGTH, agent, centralized_critic, critic_optimizer) for agent in range(5)}
     print(f'Using agents {agents}')
     if LOAD_NETWORKS:
         for agent_name, agent in agents.items():
@@ -57,23 +58,23 @@ def main():
     for i in range(MAX_EPS):
         # Reset the environment for each training episode
         observations, _ = env.reset()
+        for agent_name, agent in agents.items():
+            agent.set_initial_state(1)
+        centralized_critic.get_init_state(1)
         r = []
         for j in range(EPISODE_LENGTH): # Episode length
             count += 1
             observations_list = concatenate_observations(observations, agents)
             state_value = centralized_critic.get_state_value(observations_list)
             # Action selection for all agents
-            actions_messages = {
+            actions = {
                 agent_name: agent.get_action(
                     observations[agent_name],
-                    env.action_mask(agent_name), 
                     state_value
                 )
                 for agent_name, agent in agents.items() 
                 if agent_name in env.agents
             }
-            actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
-            # messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
             # Perform action on the environment
             observations, reward, termination, truncation, _ = env.step(actions) #, messages=messages)
 
@@ -82,7 +83,7 @@ def main():
                 done = termination[agent_name] or truncation[agent_name]
                 agent.episodic_rewards.append(reward[agent_name]) # Save reward
                 agent.episodic_termination.append(done) # Save termination
-                agent.global_observations_mem.append(observations_list)
+                agent.episodic_global_observations_mem.append(observations_list)
             # This terminates if all agent have 'termination=true'
             done = {
                 agent: termination.get(agent, False) or truncation.get(agent, False)
