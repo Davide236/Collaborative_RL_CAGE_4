@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 EPISODE_LENGTH = 500
-MAX_EPS = 750
+MAX_EPS = 4000
 LOAD_NETWORKS = False
 LOAD_BEST = False
 MESSAGES = True

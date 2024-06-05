@@ -16,11 +16,12 @@ class AgentNetwork(nn.Module):
         q_values = self.fc3(x)
         return q_values
 
+
 class QMixNet(nn.Module):
 
     def __init__(self, n_agents: int, state_shape: int):
         super(QMixNet, self).__init__()
-        self.qmix_hidden_dim = 128
+        self.qmix_hidden_dim = 256
         self.n_agents = n_agents
         self.state_shape = state_shape
         #print(f'QMIXnet. Agents: {n_agents}, total central space: {state_shape}')
@@ -47,15 +48,16 @@ class QMixNet(nn.Module):
 
         w1 = w1.view(-1, self.n_agents, self.qmix_hidden_dim)
         b1 = b1.view(-1, 1, self.qmix_hidden_dim)
-
-        hidden = F.elu(torch.bmm(q_values, w1) + b1)
+        hidden = F.relu(torch.bmm(q_values, w1) + b1)
 
         w2 = torch.abs(self.hyper_w2(states))
         b2 = self.hyper_b2(states)
 
         w2 = w2.view(-1, self.qmix_hidden_dim, 1)
         b2 = b2.view(-1, 1, 1)
-
+        # TODO: Check this
+        # Other formula
+        # q_total = (w2 * states).sum(dim=1) + b2
         q_total = torch.bmm(hidden, w2) + b2
         q_total = q_total.view(episode_num, -1, 1)
         return q_total

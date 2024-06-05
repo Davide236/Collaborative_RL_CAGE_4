@@ -32,7 +32,7 @@ def run():
         actor_dims.append(parallel_env.observation_space(agent).shape[0])
         n_actions.append(parallel_env.action_spaces[agent].n)
     # TODO: Check memory
-    second_memory = ReplayBuffer(1_000_000, actor_dims, batch_size=1024)
+    second_memory = ReplayBuffer(1_000_000, actor_dims, batch_size=20, episode_length=25)
     
     # TODO: This is a bit different in CybORG
     agents = QMix(n_agents=n_agents, n_actions=n_actions,obs_space=actor_dims,state_space=sum(actor_dims))

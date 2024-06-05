@@ -7,14 +7,13 @@ import gc
 
 
 class ReplayBuffer:
-    def __init__(self, capacity, obs_dims, batch_size: int): # Todo fix types
+    def __init__(self, capacity, obs_dims, batch_size, episode_length): # Todo fix types
 
         self.capacity = int(capacity)
         self.entries = 0
 
-        #self.batch_size = batch_size
-        
-        self.batch_size = 10 # 10 Episodes in Batch
+        self.batch_size = batch_size
+        self.episode_length = episode_length
         self.obs_dims = obs_dims
         self.max_obs_dim = np.max(obs_dims)
         self.n_agents = len(obs_dims)
@@ -23,7 +22,7 @@ class ReplayBuffer:
         self.init_episodic_memory(obs_dims)
     
     def init_episodic_memory(self, obs_dims):
-        ep_length = 25
+        ep_length = self.episode_length
         self.episodic_obs = []
         self.episodic_new_obs = []
         for ii in range(self.n_agents):

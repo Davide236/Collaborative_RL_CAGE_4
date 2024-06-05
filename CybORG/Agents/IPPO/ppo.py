@@ -1,4 +1,4 @@
-from CybORG.Agents.PPO.networks import ActorCritic
+from CybORG.Agents.IPPO.networks import ActorCritic
 from CybORG.Agents.Messages.message_handler import MessageHandler
 from torch.distributions import Categorical
 import torch 
@@ -152,7 +152,7 @@ class PPO:
         self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
     
-    def evaluate(self, observations, actions, action_mask):
+    def evaluate(self, observations, actions):
         """
         Args: 
             observations: list of observation (states) recorded by the agent
@@ -251,7 +251,6 @@ class PPO:
         obs = torch.cat(self.observation_mem, dim=0)
         acts = torch.tensor(self.actions_mem, dtype=torch.float)
         logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()
-        action_mask = torch.tensor(self.action_mask_mem, dtype=torch.int)
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
@@ -262,7 +261,7 @@ class PPO:
         minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
         A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
-        state_values, _, _ = self.evaluate(obs, acts, action_mask)
+        state_values, _, _ = self.evaluate(obs, acts)
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
@@ -282,8 +281,7 @@ class PPO:
                 mini_log_prob = logprob[idx]
                 mini_advantage = A_k[idx]
                 mini_rtgs = rtgs[idx]
-                batch_mask = action_mask[idx]
-                state_values, curr_log_probs, entropy = self.evaluate(mini_obs, mini_acts, batch_mask)
+                state_values, curr_log_probs, entropy = self.evaluate(mini_obs, mini_acts)
                 # Compute policy loss with the formula
                 entropy_loss = entropy.mean()
                 logrations = curr_log_probs - mini_log_prob

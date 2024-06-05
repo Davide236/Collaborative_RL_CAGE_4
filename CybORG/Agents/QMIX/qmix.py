@@ -3,6 +3,7 @@ import os
 import torch
 from torch import Tensor
 import random
+import math
 
 from qmix_net import QMixNet, AgentNetwork
 
@@ -39,8 +40,19 @@ class QMix():
         self.gamma = 0.99
         self.lr = 2.5e-4
         self.grad_norm_clip = 0.5
-        self.epsilon = 0.1
-        self.update_interval = 10
+        # TODO: This epsilon should start from 1 and then be annealed until 0.05
+        # Can also decay from 0.9 until 0.1
+        self.start_epsilon = 1
+        self.end_epsilon = 0.05
+        self.training_steps = 0
+        self.decay_steps = 10000 # Training Steps in which it takes to decay
+        # TODO: test with this
+        self.update_interval = 20
+    
+    # Exponential annealing
+    def epsilon_annealing(self):
+        epsilon = self.end_epsilon + (self.start_epsilon - self.end_epsilon) * math.exp(-self.training_steps / self.decay_steps)
+        return epsilon
     
     def update_target_networks(self):
         for i in range(self.n_agents):
@@ -48,7 +60,6 @@ class QMix():
         self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
 
     def process_batch(self, batch):
-        # TODO: Check processing of batch
         state = batch['obs']
         next_state = batch['obs_next']
         # Concatenate the states together (to get central state)
@@ -73,12 +84,15 @@ class QMix():
         # Compute target Q_value (and optimal action) given target network
         target_qs = [agent(next_state[j]) for j, agent in enumerate(self.target_agent_networks)]
         target_qs = torch.stack(target_qs, dim=1)
+        # TODO: Check this
+        # target_qs = target_qs.max(dim=2)[0]
         target_qs = target_qs.max(dim=-1)[0]
         q_total_target = self.qmix_net_target(target_qs, central_state_next)
         return q_total_eval, q_total_target, rwrd, term
 
     # TODO: Check this update function
     def train(self, batch, count):
+        self.training_steps += 1
         q_evals, q_targets, rewards, terminated = [], [], [], []
         for i in range(len(batch)):
             q_total_eval, q_total_target, rwrd, term = self.process_batch(batch[i])
@@ -89,7 +103,7 @@ class QMix():
 
         q_evals = torch.stack(q_evals, dim=1)
         q_targets = torch.stack(q_targets, dim=1)
-        ## CHECK
+        ## TODO: Change the 5
         q_evals = q_evals.view(5, self.episode_length, 1)
         q_targets = q_targets.view(5, self.episode_length, 1)
         #
@@ -97,7 +111,9 @@ class QMix():
         rewards = rewards[0].view(5,self.episode_length,1)
         dones = torch.stack(terminated, dim=1)
         dones = dones[0].view(5,self.episode_length,1)
-        ##
+        # TODO: Change this
+        # targets = rewards + self.gamma * q_targets * (1 - dones)
+        # loss = F.smooth_l1_loss(q_eval, targets)
         targets = rewards + self.gamma * q_targets * dones
         td_error = (q_evals - targets.detach())
         masked_td_error = dones * td_error
@@ -130,8 +146,9 @@ class QMix():
             # In this case the Q_Value is based only on the state
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
             # TODO: Check this
-            if random.random() < self.epsilon:
-                # Or Should I sample from Categorical?
+            epsilon = self.epsilon_annealing()
+            # With probability eps, do a random action
+            if random.random() < epsilon:
                 action = random.randint(0, q_value.shape[0]-1)
             else:
                 action = torch.argmax(q_value).item()
