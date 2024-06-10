@@ -1,10 +1,11 @@
 import numpy as np
 
 class MessageHandler:
-    def __init__(self, message_type):
+    def __init__(self, message_type, number):
         super(MessageHandler, self).__init__()
         # Width of the network
         self.message_type = message_type
+        self.agent_number = number
 
     # Create 8-bit messages to send between agents
     def create_binary_message_full_bits_agent_4(self,malicious_process, malicious_network):
@@ -67,10 +68,10 @@ class MessageHandler:
         return np.array(binary_array)
     
     # Function to extract information for each subnet
-    def extract_subnet_info(self, observation_vector, number):
+    def extract_subnet_info(self, observation_vector):
         total_subnets = 1
         # Agent 4 takes care of more subnets
-        if number == 4:
+        if self.agent_number == 4:
             total_subnets = 3
         S = 9  # Number of subnets
         H = 16  # Maximum number of hosts in each subnet
@@ -101,7 +102,7 @@ class MessageHandler:
         if self.message_type == '2_bits':
             return self.create_binary_message_two_bits(malicious_process, malicious_network) 
         # TODO: Change this based on action space
-        if number == 4:
+        if self.agent_number == 4:
             return self.create_binary_message_full_bits_agent_4(malicious_process, malicious_network)
         return self.create_binary_message_full_bits(malicious_process, malicious_network)
     

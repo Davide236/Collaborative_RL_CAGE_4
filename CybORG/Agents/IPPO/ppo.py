@@ -18,8 +18,8 @@ class PPO:
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
         self.use_messages = messages
-        self.message_handler = MessageHandler(message_type='8bits')
         self.agent_number = number
+        self.message_handler = MessageHandler(message_type='action', number=self.agent_number)
     
     
     def get_action(self, state):
@@ -35,9 +35,6 @@ class PPO:
                     probability distribution of all the possible actions given
                     the state.
         """
-        message = []
-        if self.use_messages:
-            message = self.message_handler.extract_subnet_info(state, self.agent_number)
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(state) # Under the old policy
@@ -46,6 +43,9 @@ class PPO:
         self.logprobs_mem.append(logprob)
         self.actions_mem.append(action) 
         self.episodic_state_val.append(state_value) 
+        message = []
+        if self.use_messages:
+            message = self.message_handler.prepare_message(state, action.item())
         return action.item(), message
     
     # Initialize arrays to save important information for the training
