@@ -1,6 +1,10 @@
 import numpy as np
 
 class MessageHandler:
+    def __init__(self, message_type):
+        super(MessageHandler, self).__init__()
+        # Width of the network
+        self.message_type = message_type
 
     # Create 8-bit messages to send between agents
     def create_binary_message_full_bits_agent_4(self,malicious_process, malicious_network):
@@ -8,6 +12,7 @@ class MessageHandler:
         message = [0] * message_size
         process_bit = 0
         network_bit = 0
+        # TODO: Change this (make it a variable)
         process_count = 1
         network_count = 5
         for process in malicious_process:
@@ -22,7 +27,7 @@ class MessageHandler:
             network_count += 1
         message[0] = process_bit
         message[4] = network_bit
-        return message
+        return np.array(message)
     
     def create_binary_message_two_bits(self,malicious_process, malicious_network):
         message_size = 8 # 8-bits messages
@@ -50,7 +55,7 @@ class MessageHandler:
         binary_message = binary_processes + binary_network
         for i, bit in enumerate(binary_message):
             message[i] = int(bit)
-        return message
+        return np.array(message)
     
 
     def action_messages(self, action_number):
@@ -93,7 +98,14 @@ class MessageHandler:
             # Append the 'malicious_network_event_detected' array to the malicious_network list
             malicious_network.append(subnet['malicious_network_event_detected'])
             malicious_process.append(subnet['malicious_process_event_detected'])
-        #if number == 4:
-            #return self.create_binary_message_full_bits_agent_4(malicious_process, malicious_network)
-        #return self.create_binary_message_full_bits(malicious_process, malicious_network)
-        return self.create_binary_message_two_bits(malicious_process, malicious_network)
+        if self.message_type == '2_bits':
+            return self.create_binary_message_two_bits(malicious_process, malicious_network) 
+        # TODO: Change this based on action space
+        if number == 4:
+            return self.create_binary_message_full_bits_agent_4(malicious_process, malicious_network)
+        return self.create_binary_message_full_bits(malicious_process, malicious_network)
+    
+    def prepare_message(self, state, action_number):
+        if self.message_type == 'action':
+            return self.action_messages(action_number)
+        return self.extract_subnet_info(state)

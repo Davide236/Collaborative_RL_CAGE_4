@@ -18,7 +18,7 @@ class PPO:
         # Initialize actor and critic network
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
         self.use_messages = messages
-        self.message_handler = MessageHandler()
+        self.message_handler = MessageHandler(message_type='8bits')
         self.agent_number = number
     
     

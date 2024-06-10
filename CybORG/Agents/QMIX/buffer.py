@@ -53,8 +53,8 @@ class ReplayBuffer:
     
     # Here make sure that the normalization works (?)
     def min_max_normalize(tensor, min_val=0.0, max_val=1.0):
-        min_tensor = torch.min(tensor)
-        max_tensor = torch.max(tensor)
+        min_tensor = torch.min(-10)
+        max_tensor = torch.max(0)
         normalized_tensor = (tensor - min_tensor) / (max_tensor - min_tensor)
         normalized_tensor = normalized_tensor * (max_val - min_val) + min_val
         return normalized_tensor 
@@ -73,7 +73,7 @@ class ReplayBuffer:
         data = {
             'obs': obs,
             'obs_next': obs_next,
-            'rewards': normalized_rewards,
+            'rewards': reward, #normalized_rewards,
             'actions': actions,
             'dones': self.episodic_dones,
             'n_step': 25 # Change this
@@ -89,7 +89,7 @@ class ReplayBuffer:
     def sample(self):
         if not self.ready(): return None
         
-        total_sample = 5
+        total_sample = 10
         sampled_episodes = random.sample(self.full_memory, total_sample)
         #print(len(sampled_episodes))
         return sampled_episodes

@@ -34,7 +34,6 @@ class QMixNet(nn.Module):
                                       nn.Linear(self.qmix_hidden_dim, 1)
                                       )
     
-    # TODO: Check this as well
     def forward(self, q_values, states):
         # The shape of states is (batch_size, max_episode_len, state_shape).
         # The passed q_values are three-dimensional, with a shape of (batch_size, max_episode_len, n_agents).
@@ -48,6 +47,7 @@ class QMixNet(nn.Module):
 
         w1 = w1.view(-1, self.n_agents, self.qmix_hidden_dim)
         b1 = b1.view(-1, 1, self.qmix_hidden_dim)
+        # Add bias to weight calculation
         hidden = F.relu(torch.bmm(q_values, w1) + b1)
 
         w2 = torch.abs(self.hyper_w2(states))
@@ -55,9 +55,7 @@ class QMixNet(nn.Module):
 
         w2 = w2.view(-1, self.qmix_hidden_dim, 1)
         b2 = b2.view(-1, 1, 1)
-        # TODO: Check this
-        # Other formula
-        # q_total = (w2 * states).sum(dim=1) + b2
+        # Matrix to matrix product
         q_total = torch.bmm(hidden, w2) + b2
         q_total = q_total.view(episode_num, -1, 1)
         return q_total

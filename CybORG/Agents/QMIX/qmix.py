@@ -1,4 +1,5 @@
-import os
+import csv
+import torch.nn.functional as F
 
 import torch
 from torch import Tensor
@@ -36,16 +37,14 @@ class QMix():
     
     def init_hyperparams(self):
         # TODO: Change this
-        self.episode_length = 25
+        self.episode_length = 50
         self.gamma = 0.99
         self.lr = 2.5e-4
-        self.grad_norm_clip = 0.5
-        # TODO: This epsilon should start from 1 and then be annealed until 0.05
-        # Can also decay from 0.9 until 0.1
-        self.start_epsilon = 1
+        self.grad_norm_clip = 5 #0.5
+        self.start_epsilon = 0.9
         self.end_epsilon = 0.05
         self.training_steps = 0
-        self.decay_steps = 10000 # Training Steps in which it takes to decay
+        self.decay_steps = 9000 # Training Steps in which it takes to decay
         # TODO: test with this
         self.update_interval = 20
     
@@ -84,14 +83,13 @@ class QMix():
         # Compute target Q_value (and optimal action) given target network
         target_qs = [agent(next_state[j]) for j, agent in enumerate(self.target_agent_networks)]
         target_qs = torch.stack(target_qs, dim=1)
-        # TODO: Check this
-        # target_qs = target_qs.max(dim=2)[0]
         target_qs = target_qs.max(dim=-1)[0]
         q_total_target = self.qmix_net_target(target_qs, central_state_next)
         return q_total_eval, q_total_target, rwrd, term
 
     # TODO: Check this update function
     def train(self, batch, count):
+        total_episodes = len(batch)
         self.training_steps += 1
         q_evals, q_targets, rewards, terminated = [], [], [], []
         for i in range(len(batch)):
@@ -100,37 +98,34 @@ class QMix():
             rewards.append(rwrd)
             q_evals.append(q_total_eval)
             q_targets.append(q_total_target)
-
         q_evals = torch.stack(q_evals, dim=1)
         q_targets = torch.stack(q_targets, dim=1)
-        ## TODO: Change the 5
-        q_evals = q_evals.view(5, self.episode_length, 1)
-        q_targets = q_targets.view(5, self.episode_length, 1)
-        #
+        q_evals = q_evals.view(total_episodes, self.episode_length, 1)
+        q_targets = q_targets.view(total_episodes, self.episode_length, 1)
         rewards = torch.stack(rewards, dim=1)
-        rewards = rewards[0].view(5,self.episode_length,1)
+        rewards = rewards[0].view(total_episodes,self.episode_length,1)
         dones = torch.stack(terminated, dim=1)
-        dones = dones[0].view(5,self.episode_length,1)
-        # TODO: Change this
-        # targets = rewards + self.gamma * q_targets * (1 - dones)
-        # loss = F.smooth_l1_loss(q_eval, targets)
-        targets = rewards + self.gamma * q_targets * dones
-        td_error = (q_evals - targets.detach())
-        masked_td_error = dones * td_error
-        loss = (masked_td_error ** 2).sum() / dones.sum()
+        dones = dones[0].view(total_episodes,self.episode_length,1)
+        targets = rewards + self.gamma * q_targets * (1 - dones)
+        loss = F.smooth_l1_loss(q_evals, targets)
+        # targets = rewards + self.gamma * q_targets * dones
+        # td_error = (q_evals - targets.detach())
+        # masked_td_error = dones * td_error
+        # loss = (masked_td_error ** 2).sum() / dones.sum()
         self.mixing_optimizer.zero_grad()
         for opt in self.agent_optimizers:
             opt.zero_grad()
+        loss.backward()
         for agent in self.agent_networks:
             torch.nn.utils.clip_grad_norm_(agent.parameters(), self.grad_norm_clip)
-        loss.backward()
         torch.nn.utils.clip_grad_norm_(self.qmix_net_eval.parameters(), self.grad_norm_clip)
         self.mixing_optimizer.step()
         for opt in self.agent_optimizers:
             opt.step()
-        # TODO: Check how many intervals should be used
         if count % self.update_interval:
             self.update_target_networks()
+        # TODO: Delete this
+        return False
         
         
         

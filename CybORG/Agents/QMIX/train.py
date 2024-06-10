@@ -19,8 +19,12 @@ def transform_observations(obs):
         observations.append(obs[f'agent_{i}'])
     return observations
 
+def normalize(arr):
+    return (arr+8)/8
+
 def run():
-    parallel_env = simple_spread_v3.parallel_env(N=3, local_ratio=0.5, max_cycles=25, continuous_actions=False)
+    ep_length = 50
+    parallel_env = simple_spread_v3.parallel_env(N=3, local_ratio=0.5, max_cycles=ep_length, continuous_actions=False)
     
 
     _, _ = parallel_env.reset()
@@ -32,7 +36,7 @@ def run():
         actor_dims.append(parallel_env.observation_space(agent).shape[0])
         n_actions.append(parallel_env.action_spaces[agent].n)
     # TODO: Check memory
-    second_memory = ReplayBuffer(1_000_000, actor_dims, batch_size=20, episode_length=25)
+    second_memory = ReplayBuffer(1_000_000, actor_dims, batch_size=20, episode_length=ep_length)
     
     # TODO: This is a bit different in CybORG
     agents = QMix(n_agents=n_agents, n_actions=n_actions,obs_space=actor_dims,state_space=sum(actor_dims))
@@ -60,7 +64,7 @@ def run():
             truncated = np.array(transform_observations(trunc))
             terminal = terminated | truncated
             rewards = transform_observations(rewards)
-            final_reward = np.sum(rewards)
+            final_reward = np.sum(normalize(np.array(rewards)))
             total_reward += final_reward
             obs = obs_next
             old_obs = transform_observations(obs)
@@ -74,7 +78,9 @@ def run():
             #print("LEARNING")
             sample = second_memory.sample()
             training_steps += 1
-            agents.train(sample, training_steps)
+            ok = agents.train(sample, training_steps)
+            if ok:
+                return
         episode += 1
         total_steps += steps
         # if memory.get_memory_real_size() >= 10:
