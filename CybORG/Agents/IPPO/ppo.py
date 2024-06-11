@@ -19,7 +19,7 @@ class PPO:
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
         self.use_messages = messages
         self.agent_number = number
-        self.message_handler = MessageHandler(message_type='action', number=self.agent_number)
+        self.message_handler = MessageHandler(message_type='8_bits', number=self.agent_number)
     
     
     def get_action(self, state):
@@ -36,10 +36,10 @@ class PPO:
                     the state.
         """
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
-        state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob, state_value = self.policy.action_selection(state) # Under the old policy
+        final_state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
+        action, logprob, state_value = self.policy.action_selection(final_state) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
-        self.observation_mem.append(state) 
+        self.observation_mem.append(final_state) 
         self.logprobs_mem.append(logprob)
         self.actions_mem.append(action) 
         self.episodic_state_val.append(state_value) 
@@ -266,10 +266,10 @@ class PPO:
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
         A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
+        # Reduce the learning rate
+        self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs
         for _ in range(self.epochs):
-            # Reduce the learning rate
-            self.anneal_lr(total_steps)
             np.random.shuffle(index) # Shuffle the index
             # Process each minibatch
             for start in range(0, step, minibatch_size):

@@ -51,8 +51,8 @@ class MessageHandler:
         message = [0] * message_size
         total_network = np.sum(malicious_network)
         total_processes = np.sum(malicious_process)
-        binary_network = format(total_network, '04b')
-        binary_processes = format(total_processes, '04b')
+        binary_network = format(int(total_network), '04b')
+        binary_processes = format(int(total_processes), '04b')
         binary_message = binary_processes + binary_network
         for i, bit in enumerate(binary_message):
             message[i] = int(bit)

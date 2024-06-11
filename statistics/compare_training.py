@@ -24,7 +24,7 @@ averages3 = calculate_averages(data3)
 # Plot the average reward per episode for both files
 plt.figure(figsize=(10, 5))
 plt.subplot(2, 1, 1)
-plt.plot(averages1, label='2 Bits IPPO', color='blue')
+plt.plot(averages1, label='Action IPPO', color='blue')
 plt.plot(averages2, label='IPPO', color='orange')
 plt.plot(averages3, label='8 Bits IPPO', color='green')
 plt.xlabel('Number of Episodes')
@@ -41,7 +41,7 @@ rolling_averages3 = [np.mean(data3[0][i:i+rolling_window]) for i in range(0, len
 
 # Plot the rolling average reward for both files
 plt.subplot(2, 1, 2)
-plt.plot(rolling_averages1, label='2 Bits IPPO', color='blue')
+plt.plot(rolling_averages1, label='Action IPPO', color='blue')
 plt.plot(rolling_averages2, label='IPPO', color='orange')
 plt.plot(rolling_averages3, label='8 Bits IPPO', color='green')
 plt.xlabel('Number of 50-Episode Windows')
