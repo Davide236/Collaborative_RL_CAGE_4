@@ -6,8 +6,8 @@ from torch import Tensor
 import random
 import math
 
+#from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
 from qmix_net import QMixNet, AgentNetwork
-
 # P.S: Something like this can be done for GPU/CPU
 
 # if GPU:
@@ -18,9 +18,9 @@ from qmix_net import QMixNet, AgentNetwork
 # TODO: A bit different since each agent has their total number of actions
 class QMix():
 
-    def __init__(self, n_agents, n_actions, obs_space, state_space):
+    def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes):
         # TODO: Init Hyperparams method
-        self.init_hyperparams()
+        self.init_hyperparams(episode_length, total_episodes)
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.obs_space = obs_space
@@ -35,18 +35,18 @@ class QMix():
         
         #self.device = torch.device('cpu')
     
-    def init_hyperparams(self):
+    def init_hyperparams(self, ep_length, total_episodes):
         # TODO: Change this
-        self.episode_length = 50
+        self.episode_length = ep_length
         self.gamma = 0.99
         self.lr = 2.5e-4
         self.grad_norm_clip = 5 #0.5
-        self.start_epsilon = 0.9
-        self.end_epsilon = 0.05
+        self.start_epsilon = 1
+        self.end_epsilon = 0.01
         self.training_steps = 0
-        self.decay_steps = 9000 # Training Steps in which it takes to decay
+        self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
         # TODO: test with this
-        self.update_interval = 20
+        self.update_interval = 10
     
     # Exponential annealing
     def epsilon_annealing(self):
@@ -133,8 +133,6 @@ class QMix():
     # the highest Q Value
     def choose_actions(self, observations):
         # TODO: Change this
-        actions_with_name = {}
-        agents_names = ['agent_0', 'agent_1', 'agent_2']
         actions = []
         for i, agent in enumerate(self.agent_networks):
             obs = observations[i]
@@ -148,6 +146,4 @@ class QMix():
             else:
                 action = torch.argmax(q_value).item()
             actions.append(action)
-            agent_name = agents_names[i]
-            actions_with_name[agent_name] = action
-        return actions_with_name, actions
+        return actions

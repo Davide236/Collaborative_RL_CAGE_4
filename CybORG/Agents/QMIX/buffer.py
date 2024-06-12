@@ -1,10 +1,8 @@
 import numpy as np
-from collections import Counter
 from torch import Tensor
 import torch
 import random
 import gc
-
 
 class ReplayBuffer:
     def __init__(self, capacity, obs_dims, batch_size, episode_length): # Todo fix types
@@ -17,8 +15,8 @@ class ReplayBuffer:
         self.obs_dims = obs_dims
         self.max_obs_dim = np.max(obs_dims)
         self.n_agents = len(obs_dims)
-        
-        self.full_memory = []
+        self.memory_counter = 0
+        self.full_memory = [None] * self.capacity
         self.init_episodic_memory(obs_dims)
     
     def init_episodic_memory(self, obs_dims):
@@ -26,9 +24,8 @@ class ReplayBuffer:
         self.episodic_obs = []
         self.episodic_new_obs = []
         for ii in range(self.n_agents):
-            # Here 25 since it's max Episode length
-            self.episodic_obs.append( Tensor(ep_length, obs_dims[ii]) )
-            self.episodic_new_obs.append( Tensor(ep_length, obs_dims[ii]) )
+            self.episodic_obs.append(Tensor(ep_length, obs_dims[ii]))
+            self.episodic_new_obs.append(Tensor(ep_length, obs_dims[ii]))
         self.episodic_acts = Tensor(self.n_agents, ep_length)
         self.episodic_rewards = Tensor(self.n_agents, ep_length)
         self.episodic_dones = Tensor(self.n_agents, ep_length)
@@ -49,25 +46,19 @@ class ReplayBuffer:
             self.episodic_new_obs[ii][step] = Tensor(nobs[ii])
         self.episodic_acts[:,step] = torch.Tensor(acts)
         self.episodic_rewards[:,step] = Tensor(rwds)
+        #acts = np.array(acts)    
         self.episodic_dones[:,step] = Tensor(dones)
     
-    # Here make sure that the normalization works (?)
-    def min_max_normalize(tensor, min_val=0.0, max_val=1.0):
-        min_tensor = torch.min(-10)
-        max_tensor = torch.max(0)
-        normalized_tensor = (tensor - min_tensor) / (max_tensor - min_tensor)
-        normalized_tensor = normalized_tensor * (max_val - min_val) + min_val
-        return normalized_tensor 
-       
+
     def append_episodic(self):
         obs = torch.stack(self.episodic_obs, dim=0)
         obs_next = torch.stack(self.episodic_new_obs, dim=0)
         actions = torch.Tensor(self.episodic_acts)
         # NORMALIZE REWARDS
-        min_tensor = torch.min(self.episodic_rewards)
-        max_tensor = torch.max(self.episodic_rewards)
-        normalized_tensor = (self.episodic_rewards - min_tensor) / (max_tensor - min_tensor)
-        normalized_rewards = normalized_tensor * (1.0 - 0.0) + 0.0
+        # min_tensor = torch.min(self.episodic_rewards)
+        # max_tensor = torch.max(self.episodic_rewards)
+        # normalized_tensor = (self.episodic_rewards - min_tensor) / (max_tensor - min_tensor)
+        # normalized_rewards = normalized_tensor * (1.0 - 0.0) + 0.0
         ## Not Normalized rewards
         reward = torch.Tensor(self.episodic_rewards)
         data = {
@@ -76,23 +67,22 @@ class ReplayBuffer:
             'rewards': reward, #normalized_rewards,
             'actions': actions,
             'dones': self.episodic_dones,
-            'n_step': 25 # Change this
+            'n_step': self.episode_length # Change this
         }
-        # print("DAJE")
-        # print(data)
-        self.full_memory.append(data)
-        # TODO: Maybe clear them
+        counter = self.memory_counter % self.capacity
+        self.full_memory[int(counter)] = data
+        self.memory_counter += 1
         self.delete_episodic_memory()
         self.init_episodic_memory(self.obs_dims)
         
 
-    def sample(self):
+    def sample(self, sample_size):
         if not self.ready(): return None
-        
-        total_sample = 10
-        sampled_episodes = random.sample(self.full_memory, total_sample)
+        non_empty_memory = [item for item in self.full_memory if item is not None]
+        sampled_episodes = random.sample(non_empty_memory, sample_size)
         #print(len(sampled_episodes))
         return sampled_episodes
     
     def ready(self):
-        return (self.batch_size <= len(self.full_memory))
+        non_empty_memory = [item for item in self.full_memory if item is not None]
+        return (self.batch_size <= len(non_empty_memory))

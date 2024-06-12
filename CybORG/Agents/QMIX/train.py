@@ -39,7 +39,7 @@ def run():
     second_memory = ReplayBuffer(1_000_000, actor_dims, batch_size=20, episode_length=ep_length)
     
     # TODO: This is a bit different in CybORG
-    agents = QMix(n_agents=n_agents, n_actions=n_actions,obs_space=actor_dims,state_space=sum(actor_dims))
+    agents = QMix(n_agents=n_agents, n_actions=n_actions,obs_space=actor_dims,state_space=sum(actor_dims), episode_length = ep_length, total_episodes = 9000)
     MAX_STEPS = 500000
     avg_rewd = []
     training_steps = 0
@@ -57,7 +57,11 @@ def run():
         steps = 0
         ep_length = 0
         while not any(terminal):            
-            actions_with_name, actions = agents.choose_actions(transform_observations(obs))
+            actions = agents.choose_actions(transform_observations(obs))
+            agent_name = ['agent_0', 'agent_1', 'agent_2']
+            actions_with_name = {}
+            for i in range(3):
+                actions_with_name[agent_name[i]] = actions[i]
             obs_next, rewards, terminal, trunc, _ = parallel_env.step(actions_with_name)
             # Save Old state, New State, Rewards, Action and Termination flags
             terminated = np.array(transform_observations(terminal))
@@ -66,8 +70,8 @@ def run():
             rewards = transform_observations(rewards)
             final_reward = np.sum(normalize(np.array(rewards)))
             total_reward += final_reward
-            obs = obs_next
             old_obs = transform_observations(obs)
+            obs = obs_next
             new_obs = transform_observations(obs_next)
             second_memory.store_episodic(old_obs, actions, rewards, new_obs, terminal, ep_length)
             ep_length +=1
@@ -76,7 +80,7 @@ def run():
         second_memory.append_episodic()
         if second_memory.ready():
             #print("LEARNING")
-            sample = second_memory.sample()
+            sample = second_memory.sample(sample_size = 10)
             training_steps += 1
             ok = agents.train(sample, training_steps)
             if ok:

@@ -6,9 +6,10 @@ import torch.nn.functional as F
 class AgentNetwork(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(AgentNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, output_dim)
+        self.layed_dim = 256
+        self.fc1 = nn.Linear(input_dim, self.layed_dim)
+        self.fc2 = nn.Linear(self.layed_dim, self.layed_dim)
+        self.fc3 = nn.Linear(self.layed_dim, output_dim)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
