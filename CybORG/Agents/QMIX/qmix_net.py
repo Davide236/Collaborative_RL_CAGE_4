@@ -26,8 +26,14 @@ class QMixNet(nn.Module):
         self.n_agents = n_agents
         self.state_shape = state_shape
         #print(f'QMIXnet. Agents: {n_agents}, total central space: {state_shape}')
-        self.hyper_w1 = nn.Linear(state_shape, n_agents * self.qmix_hidden_dim)
-        self.hyper_w2 = nn.Linear(state_shape, self.qmix_hidden_dim * 1)
+        self.hyper_w1 = nn.Sequential(nn.Linear(state_shape,self.qmix_hidden_dim),
+                                      nn.ReLU(),
+                                      nn.Linear(self.qmix_hidden_dim, n_agents * self.qmix_hidden_dim)
+                                      )
+        self.hyper_w2 = nn.Sequential(nn.Linear(state_shape,self.qmix_hidden_dim),
+                                      nn.ReLU(),
+                                      nn.Linear(self.qmix_hidden_dim, 1 * self.qmix_hidden_dim)
+                                      )
 
         self.hyper_b1 = nn.Linear(state_shape, self.qmix_hidden_dim)
         self.hyper_b2 = nn.Sequential(nn.Linear(state_shape, self.qmix_hidden_dim),
@@ -36,13 +42,9 @@ class QMixNet(nn.Module):
                                       )
     
     def forward(self, q_values, states):
-        # The shape of states is (batch_size, max_episode_len, state_shape).
-        # The passed q_values are three-dimensional, with a shape of (batch_size, max_episode_len, n_agents).
-
         episode_num = q_values.size(0)
         q_values = q_values.view(-1, 1, self.n_agents)
         states = states.reshape(-1, self.state_shape)
-
         w1 = torch.abs(self.hyper_w1(states))
         b1 = self.hyper_b1(states)
 
@@ -59,4 +61,5 @@ class QMixNet(nn.Module):
         # Matrix to matrix product
         q_total = torch.bmm(hidden, w2) + b2
         q_total = q_total.view(episode_num, -1, 1)
+        #q_total2 = q_total.view(-1, 1)
         return q_total

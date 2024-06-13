@@ -38,9 +38,9 @@ class QMix():
     def init_hyperparams(self, ep_length, total_episodes):
         # TODO: Change this
         self.episode_length = ep_length
-        self.gamma = 0.99
+        self.gamma = 0.8
         self.lr = 2.5e-4
-        self.grad_norm_clip = 5 #0.5
+        self.grad_norm_clip = 0.5
         self.start_epsilon = 1
         self.end_epsilon = 0.01
         self.training_steps = 0
@@ -107,7 +107,8 @@ class QMix():
         dones = torch.stack(terminated, dim=1)
         dones = dones[0].view(total_episodes,self.episode_length,1)
         targets = rewards + self.gamma * q_targets * (1 - dones)
-        loss = F.smooth_l1_loss(q_evals, targets)
+        loss2 = F.smooth_l1_loss(q_evals, targets)
+        loss = F.mse_loss(q_evals, targets)
         # targets = rewards + self.gamma * q_targets * dones
         # td_error = (q_evals - targets.detach())
         # masked_td_error = dones * td_error
@@ -115,6 +116,7 @@ class QMix():
         self.mixing_optimizer.zero_grad()
         for opt in self.agent_optimizers:
             opt.zero_grad()
+        #print(f'Rewards: {rewards}')
         loss.backward()
         for agent in self.agent_networks:
             torch.nn.utils.clip_grad_norm_(agent.parameters(), self.grad_norm_clip)
@@ -124,8 +126,6 @@ class QMix():
             opt.step()
         if count % self.update_interval:
             self.update_target_networks()
-        # TODO: Delete this
-        return False
         
         
         
@@ -140,8 +140,9 @@ class QMix():
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
             # TODO: Check this
             epsilon = self.epsilon_annealing()
+            random_value = random.random()
             # With probability eps, do a random action
-            if random.random() < epsilon:
+            if random_value < epsilon:
                 action = random.randint(0, q_value.shape[0]-1)
             else:
                 action = torch.argmax(q_value).item()

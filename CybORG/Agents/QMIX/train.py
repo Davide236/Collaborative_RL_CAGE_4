@@ -68,7 +68,7 @@ def run():
             truncated = np.array(transform_observations(trunc))
             terminal = terminated | truncated
             rewards = transform_observations(rewards)
-            final_reward = np.sum(normalize(np.array(rewards)))
+            final_reward = np.sum(rewards)
             total_reward += final_reward
             old_obs = transform_observations(obs)
             obs = obs_next
@@ -82,16 +82,9 @@ def run():
             #print("LEARNING")
             sample = second_memory.sample(sample_size = 10)
             training_steps += 1
-            ok = agents.train(sample, training_steps)
-            if ok:
-                return
+            agents.train(sample, training_steps)
         episode += 1
         total_steps += steps
-        # if memory.get_memory_real_size() >= 10:
-        #     for i in range(10):
-        #         # Sample from batch
-        #         batch = memory.sample(100) # This should be different
-        #         agents.learn(batch, episode)
         full_rwd += total_reward
         avg_rewd.append(full_rwd/episode)
         print(f'Reward: {total_reward} in {total_steps}, episode {episode} - AVG: {full_rwd/episode}')

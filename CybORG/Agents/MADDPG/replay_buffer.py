@@ -66,23 +66,7 @@ class MultiAgentReplayBuffer:
             "rewards": self.reward_memory[:, batch],
             "dones": self.terminal_memory[:, batch],
         }
-        # states = self.state_memory[batch]
-        # states_ = self.new_state_memory[batch]
-        # rewards = self.reward_memory[batch]
-        # terminal = self.terminal_memory[batch]
 
-        # actions = self.action_memory[batch]
-        # actor_states = []
-        # actor_new_states = []
-        # # actions = []
-        # for agent_idx in range(self.n_agents):
-        #     actor_states.append(self.actor_state_memory[agent_idx][batch])
-        #     actor_new_states.append(
-        #         self.actor_new_state_memory[agent_idx][batch])
-        #     # actions.append(self.actor_action_memory[agent_idx][batch])
-
-        # return actor_states, states, actions, rewards, \
-        #     actor_new_states, states_, terminal
 
     def ready(self):
         if self.mem_cntr >= self.batch_size:
