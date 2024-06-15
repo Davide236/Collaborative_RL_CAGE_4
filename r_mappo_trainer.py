@@ -8,7 +8,7 @@ from statistics import mean, stdev
 import numpy as np
 import torch
 import torch.nn as nn
-
+import os
 import csv
 import matplotlib.pyplot as plt
 
@@ -27,6 +27,20 @@ def concatenate_observations(observations, agents):
     state = torch.FloatTensor(normalized_state.reshape(1,-1))
     return state
 
+def save_last_epoch(critic,checkpoint):
+    print('Saving Networks.....')
+    torch.save(critic.state_dict(),checkpoint)
+    
+# Save both actor and critic networks of the agent
+def save_network(critic,checkpoint):
+    print('Saving Networks.....')
+    torch.save(critic.state_dict(),checkpoint)
+    
+    # Initialize checkpoint to save the different agents
+def init_checkpoint():
+    checkpoint_file_critic = os.path.join('saved_networks', f'r_critic_mappoppo_central')
+    last_checkpoint_file_critic = os.path.join('last_networks', f'r_critic_mappo_central')
+    return checkpoint_file_critic, last_checkpoint_file_critic
 
 def main():
     # Initialize CybORG environment
@@ -37,6 +51,7 @@ def main():
     cyborg = CybORG(scenario_generator=sg, seed=1) # Add Seed
     env = BlueFlatWrapper(env=cyborg)
     env.reset()
+    best_critic, last_critic = init_checkpoint()
     lr = 2.5e-4 # Learning rate of optimizer
     eps = 1e-5
     centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0],env.observation_space('blue_agent_0').shape[0], 5)
@@ -112,7 +127,7 @@ def main():
                 best_reward = avg_rwd
                 for agent_name, agent in agents.items():
                     agent.save_network()
-                    centralized_critic.save_network()
+                    save_network(centralized_critic, best_critic)
             partial_rewards = 0 
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
@@ -126,7 +141,7 @@ def main():
     for agent_name, agent in agents.items():
         agent.save_statistics_csv() 
         agent.save_last_epoch() 
-        centralized_critic.save_last_epoch()
+        save_last_epoch(centralized_critic, last_critic)
     # Graph of average rewards and print output results 
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)

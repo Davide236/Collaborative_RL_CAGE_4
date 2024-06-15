@@ -59,31 +59,31 @@ class PPO:
         print('Saving Networks and Optimizers.....')
         torch.save({
             'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor.actor_optimizer.state_dict(),
+            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
         }, self.last_checkpoint_file_actor)
     
     def load_last_epoch(self):
         print('Loading Last saved Networks and Optimizers......')
         checkpoint = torch.load(self.last_checkpoint_file_actor)
         self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
     def save_network(self):
         print('Saving Networks and Optimizers.....')
         torch.save({
             'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor.actor_optimizer.state_dict(),
+            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
         }, self.checkpoint_file_actor)
     
     def load_network(self):
         print('Loading Networks and Optimizers......')
         checkpoint = torch.load(self.checkpoint_file_actor)
         self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_ppo_{number}')
-        self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_ppo_{number}')
+        self.checkpoint_file_actor = os.path.join('saved_networks', f'r_actor_mappo_{number}')
+        self.last_checkpoint_file_actor = os.path.join('last_networks', f'r_actor_mappo_{number}')
 
     # Save the statistics to a csv file
     def save_statistics_csv(self):

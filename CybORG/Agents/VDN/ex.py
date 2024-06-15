@@ -33,6 +33,7 @@ def run_VDN(env, device):
     training_steps = 0
     full_rwd = 0
     avg_rewd = []
+    loss_tot = []
     while total_steps < MAX_STEPS:
         obs, _ = env.reset()
         steps = 0
@@ -42,6 +43,7 @@ def run_VDN(env, device):
         while not any(terminal):
             steps += 1
             actions = {}
+            # TODO: State normalization here?
             for agent in name_agent:
                 #actions[agent] = vdnAgents.act(vdnAgents.combine(obs[agent], agent), agent, epsilon)
                 actions[agent] = vdnAgents.choose_actions(vdnAgents.combine(obs, agent))
@@ -69,17 +71,26 @@ def run_VDN(env, device):
             #print("LEARNING")
             sample = memory.sample(sample_size = 10)
             training_steps += 1
-            vdnAgents.train(sample, training_steps)
-
+            loss = vdnAgents.train(sample, training_steps)
+            loss_tot.append(loss.item())
         episode += 1
         total_steps += steps
         full_rwd += total_reward
         avg_rewd.append(full_rwd/episode)
         print(f'Reward: {total_reward} in {total_steps}, episode {episode} - AVG: {full_rwd/episode}')
+    plt.figure()
     plt.plot(avg_rewd)
     plt.xlabel('Episode')
     plt.ylabel('Reward')
     plt.title('Reward per Episode')
+    plt.grid(True)
+    plt.show()
+
+    plt.figure()  # Create another new figure
+    plt.plot(loss_tot)
+    plt.xlabel('Episode')
+    plt.ylabel('Loss')
+    plt.title('Loss per Episode')
     plt.grid(True)
     plt.show()
 

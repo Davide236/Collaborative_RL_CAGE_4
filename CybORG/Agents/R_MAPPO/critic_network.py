@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.distributions import Categorical
+import os
 import torch.nn.functional as F
 import numpy as np
 
@@ -48,3 +48,4 @@ class CriticNetwork(nn.Module):
         hidden_value = F.relu(self.lin_value(state))
         value = self.value_layer(hidden_value).reshape(-1)
         return value
+    

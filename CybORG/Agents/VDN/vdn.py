@@ -40,7 +40,7 @@ class VDN():
         self.training_steps = 0
         self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
         # TODO: test with this
-        self.update_interval = 10
+        self.update_interval = 20
     
     # Exponential annealing
     def epsilon_annealing(self):
@@ -56,11 +56,7 @@ class VDN():
     def combine(self, obs, agent):
         obs = self.transform_observations(obs)
         # TODO: Check this, probably combine the full states togeter
-        if torch.is_tensor(obs):
-            print("HERE, dont delete")
-            obs_array = obs.cpu().numpy().flatten()
-        else:
-            obs_array = np.array(obs).flatten()
+        obs_array = np.array(obs).flatten()
         role_tensor = self.role[agent].cpu()
         # Role tensor. Gives a number to each agent
         obs_tensor_cpu = torch.tensor(obs_array)
@@ -78,6 +74,7 @@ class VDN():
         # Get and transpose the actions
         actions = batch['actions'].long()
         episode_actions = actions.t()
+        print(f'Obs shape: {state.shape}, acts shape: {actions.shape}, rewards: {rwrd.shape}')
         agent_qs = [self.shared_network(state[j]) for j, _ in enumerate(self.n_agents)]
         agent_qs = torch.stack(agent_qs, dim=1)
         # Target Q Value evaluated also based on the actions taken
@@ -92,9 +89,13 @@ class VDN():
     def train(self, batch, count):
         total_episodes = len(batch)
         self.training_steps += 1
+        total_q_vals = torch.zeros(total_episodes)
+        expected_q_vals = torch.zeros(total_episodes)
         q_evals, q_targets, rewards, terminated = [], [], [], []
         for i in range(len(batch)):
-            q_total_eval, q_total_target, rwrd, term = self.process_batch(batch[i])
+            q_total_eval, q_total_target, rwrd, term, totq, expq = self.process_batch(batch[i])
+            total_q_vals += totq
+            expected_q_vals += expq
             terminated.append(term)
             rewards.append(rwrd)
             q_evals.append(q_total_eval)
@@ -109,6 +110,8 @@ class VDN():
         dones = dones[0].view(total_episodes,self.episode_length,1)
         targets = rewards + self.gamma * q_targets * (1 - dones)
         loss = F.mse_loss(q_evals, targets)
+        loss1 = F.mse_loss(total_q_vals, expected_q_vals)
+        print(f'Loss: {loss}, loss1 : {loss1}')
         # targets = rewards + self.gamma * q_targets * dones
         # td_error = (q_evals - targets.detach())
         # masked_td_error = dones * td_error
@@ -120,6 +123,7 @@ class VDN():
         self.optimizer.step()
         if count % self.update_interval:
             self.update_target_networks()
+        return loss
         
         
         
