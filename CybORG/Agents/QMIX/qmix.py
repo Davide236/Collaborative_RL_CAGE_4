@@ -1,21 +1,13 @@
-import csv
 import torch.nn.functional as F
-
 import torch
-from torch import Tensor
 import random
 import math
+import os
+import yaml
 
-#from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
-from qmix_net import QMixNet, AgentNetwork
-# P.S: Something like this can be done for GPU/CPU
+from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
+#from qmix_net import QMixNet, AgentNetwork
 
-# if GPU:
-#     device = torch.device("cuda:" + str(device_idx) if torch.cuda.is_available() else "cpu")
-# else:
-#     device = torch.device("cpu")
-
-# TODO: A bit different since each agent has their total number of actions
 class QMix():
 
     def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes):
@@ -25,11 +17,11 @@ class QMix():
         self.n_actions = n_actions
         self.obs_space = obs_space
         self.state_space = state_space
-        self.agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i]) for i in range(self.n_agents)]
-        self.target_agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i]) for i in range(self.n_agents)]
+        self.agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i], self.fc) for i in range(self.n_agents)]
+        self.target_agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i], self.fc) for i in range(self.n_agents)]
         # Network for summing up the Q-values of agents
-        self.qmix_net_eval = QMixNet(self.n_agents, state_space)
-        self.qmix_net_target = QMixNet(self.n_agents, state_space)
+        self.qmix_net_eval = QMixNet(self.n_agents, state_space, self.fc)
+        self.qmix_net_target = QMixNet(self.n_agents, state_space, self.fc)
         self.agent_optimizers = [torch.optim.Adam(agent.parameters(), lr=self.lr) for agent in self.agent_networks]
         self.mixing_optimizer = torch.optim.Adam(self.qmix_net_eval.parameters(), lr=self.lr)
         
@@ -38,15 +30,19 @@ class QMix():
     def init_hyperparams(self, ep_length, total_episodes):
         # TODO: Change this
         self.episode_length = ep_length
-        self.gamma = 0.8
-        self.lr = 2.5e-4
-        self.grad_norm_clip = 0.5
-        self.start_epsilon = 1
-        self.end_epsilon = 0.01
+        config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
+        with open(config_file_path, 'r') as file:
+            params = yaml.safe_load(file)
+        self.gamma = float(params.get('gamma', 0.99))
+        self.lr = float(params.get('lr', 2.5e-4))
+        self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5))
+        self.start_epsilon =float(params.get('start_epsilon', 1)) 
+        self.end_epsilon = float(params.get('end_epsilon', 0.01))
+        self.fc = int(params.get('fc', 256))
+        self.update_interval = int(params.get('update_interval', 10))
         self.training_steps = 0
         self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
         # TODO: test with this
-        self.update_interval = 10
     
     # Exponential annealing
     def epsilon_annealing(self):

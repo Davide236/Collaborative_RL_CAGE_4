@@ -5,7 +5,7 @@ from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
 import numpy as np
-
+import yaml
 import os
 import csv
 
@@ -17,7 +17,7 @@ class PPO:
         self.init_checkpoint(number)
         self.init_check_memory(number)
         # Initialize actor and critic network
-        self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps)
+        self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps, self.fc)
         self.use_messages = messages
         self.agent_number = number
         self.message_handler = MessageHandler(message_type='8_bits', number=self.agent_number)
@@ -93,18 +93,22 @@ class PPO:
 
     # Initialize hyperparameters
     def init_hyperparameters(self, episodes):
-        self.epochs = 10
-        self.gamma = 0.99 # Discount factor
-        self.clip = 0.1 # Clipping value: 0.2 is the value recommended by the paper.
-        self.lr = 2.5e-4 # Learning rate of optimizer
-        self.eps = 1e-5 # Epsilon value of optimizer to improve stability
-        self.gae_lambda = 0.95 # General advantage estimation
         self.max_episodes = episodes
-        self.entropy_coeff = 0.01 # Entropy coefficient
-        self.value_coefficient = 0.5 # State value coeff for loss calculation
-        self.max_grad_norm = 0.5 # Gradient clipping value
-        self.minibatch_number = 1
-        self.target_kl = 0.02 # 0.02 is also an option here
+        config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
+        with open(config_file_path, 'r') as file:
+            params = yaml.safe_load(file)
+        self.epochs = int(params.get('epochs', 10))
+        self.gamma = float(params.get('gamma', 0.99))
+        self.clip = float(params.get('clip', 0.1))
+        self.lr = float(params.get('lr', 2.5e-4))
+        self.eps = float(params.get('eps', 1e-5))
+        self.gae_lambda = float(params.get('gae_lambda', 0.95))
+        self.entropy_coeff = float(params.get('entropy_coeff', 0.01))
+        self.value_coefficient = float(params.get('value_coefficient', 0.5))
+        self.max_grad_norm = float(params.get('max_grad_norm', 0.5))
+        self.minibatch_number = int(params.get('minibatch_number', 1))
+        self.fc = int(params.get('fc', 256))
+        self.target_kl = float(params.get('target_kl', 0.02))
 
      
     

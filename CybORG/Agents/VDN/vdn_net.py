@@ -2,24 +2,24 @@ import torch
 import torch.nn as nn
 
 class QNet(nn.Module):
-    def __init__(self, observation_space, action_space, recurrent=False):
+    def __init__(self, observation_space, action_space,fc, hidden_size, recurrent=False):
         super(QNet, self).__init__()
         self.num_agents = len(observation_space)
         self.recurrent = recurrent
-        self.hx_size = 32
+        self.fc = fc
         for agent_i in range(self.num_agents):
             n_obs = observation_space[agent_i]
-            setattr(self, 'agent_feature_{}'.format(agent_i), nn.Sequential(nn.Linear(n_obs, 64),
+            setattr(self, 'agent_feature_{}'.format(agent_i), nn.Sequential(nn.Linear(n_obs, self.fc),
                                                                             nn.ReLU(),
-                                                                            nn.Linear(64, self.hx_size),
+                                                                            nn.Linear(self.fc, self.fc),
                                                                             nn.ReLU()))
             if recurrent:
-                setattr(self, 'agent_gru_{}'.format(agent_i), nn.GRUCell(self.hx_size, self.hx_size))
-            setattr(self, 'agent_q_{}'.format(agent_i), nn.Linear(self.hx_size, action_space[agent_i]))
+                setattr(self, 'agent_gru_{}'.format(agent_i), nn.GRUCell(self.fc, self.fc))
+            setattr(self, 'agent_q_{}'.format(agent_i), nn.Linear(self.fc, action_space[agent_i]))
 
     def forward(self, obs, hidden):
         q_values = [torch.empty(obs.shape[0], )] * self.num_agents
-        next_hidden = [torch.empty(obs.shape[0], 1, self.hx_size)] * self.num_agents
+        next_hidden = [torch.empty(obs.shape[0], 1, self.fc)] * self.num_agents
         for agent_i in range(self.num_agents):
             x = getattr(self, 'agent_feature_{}'.format(agent_i))(obs[:, agent_i, :])
             if self.recurrent:
@@ -39,4 +39,4 @@ class QNet(nn.Module):
         return action, hidden
 
     def init_hidden(self, batch_size=1):
-        return torch.zeros((batch_size, self.num_agents, self.hx_size))
+        return torch.zeros((batch_size, self.num_agents, self.fc))

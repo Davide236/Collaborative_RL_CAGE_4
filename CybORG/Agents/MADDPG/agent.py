@@ -1,9 +1,9 @@
 from CybORG.Agents.MADDPG.networks import ActorNetwork, CriticNetwork
 import torch as T
-import numpy as np
 from copy import deepcopy
-from torch.autograd import Variable
 import torch.nn.functional as F
+import yaml
+import os
 
 class Agent:
     def __init__(self, actor_dims, critic_dims, n_actions,total_actions, agent_idx, n_agents, gradient_estimator):
@@ -19,13 +19,16 @@ class Agent:
         self.update_network_parameters(tau=1)
     
     def init_hyperparameters(self, n_actions, agent_idx, n_agents):
-        self.lr = 0.01
-        self.fc1 = 256
-        self.fc2 = 256
-        self.gamma = 0.99 
-        self.tau = 0.01
-        self.policy_regulariser = 0.001
-        self.max_grad_norm = 0.5
+        config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
+        with open(config_file_path, 'r') as file:
+            params = yaml.safe_load(file)
+        self.lr = float(params.get('lr',0.01))
+        self.fc1 = int(params.get('fc1', 256))
+        self.fc2 = int(params.get('fc2', 256))
+        self.gamma = float(params.get('gamma',0.99)) 
+        self.tau = float(params.get('tau',0.01))
+        self.policy_regulariser = float(params.get('policy_regulariser',0.001))
+        self.max_grad_norm = float(params.get('max_grad_norm',0.5))
         self.n_actions = n_actions
         self.agent_idx = agent_idx
         self.n_agents = n_agents

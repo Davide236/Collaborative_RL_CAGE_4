@@ -1,9 +1,10 @@
 import torch.nn.functional as F
-
 import torch
 import numpy as np
 from vdn_net import QNet
 from buffer import ReplayBuffer
+import yaml
+import os
 
 class VDN():
 
@@ -14,8 +15,11 @@ class VDN():
 
         self.n_agents = n_agents
         self.n_actions = n_actions
-        self.q_network = QNet(actor_dims, n_actions, recurrent=True)
-        self.target_network = QNet(actor_dims, n_actions, recurrent=True)
+        self.epsilon = 1
+        self.training_steps = 0
+        self.hidden = None
+        self.q_network = QNet(actor_dims, n_actions,self.fc, recurrent=True)
+        self.target_network = QNet(actor_dims, n_actions,self.fc, recurrent=True)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=self.lr)
@@ -24,20 +28,19 @@ class VDN():
     def init_hyperparams(self):
         # TODO: Change this
         #self.episode_length = ep_length
-        self.gamma = 0.9
-        self.lr = 2.5e-4
-        self.grad_norm_clip = 5
-        self.chunk_size = 10
-        self.update_iter = 10
-        self.batch_size = 50
-        self.epsilon = 1
-        self.max_epsilon = 1
-        self.min_epsilon = 0.01
-        self.training_steps = 0
-        #self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
-        # TODO: test with this
-        self.update_interval = 20
-        self.hidden = None
+        config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
+        with open(config_file_path, 'r') as file:
+            params = yaml.safe_load(file)
+        self.gamma = float(params.get('gamma', 0.99))
+        self.lr = float(params.get('lr', 2.5e-4))
+        self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5))
+        self.start_epsilon =float(params.get('start_epsilon', 1)) 
+        self.end_epsilon = float(params.get('end_epsilon', 0.01))
+        self.fc = int(params.get('fc', 256))
+        self.update_interval = int(params.get('update_interval', 10))
+        self.chunk_size = int(params.get('chunk_size', 10))
+        self.training_epochs = int(params.get('training_epochs', 10))
+        self.batch_size = int(params.get('batch_size', 50))
     
 
     def get_actions(self, state):
@@ -50,7 +53,7 @@ class VDN():
 
     def train(self):
         _chunk_size = self.chunk_size if self.q_network.recurrent else 1
-        for _ in range(self.update_iter):
+        for _ in range(self.training_epochs):
             s, a, r, s_prime, done = self.memory.sample_chunk(self.batch_size, _chunk_size)
 
             hidden = self.q_network.init_hidden(self.batch_size)
@@ -84,4 +87,4 @@ class VDN():
         self.target_network.load_state_dict(self.q_network.state_dict())
 
     def update_epsilon(self, episode, max_episode):
-        self.epsilon = max(self.min_epsilon, self.max_epsilon - (self.max_epsilon - self.min_epsilon) * (episode / (0.6 * max_episode)))
+        self.epsilon = max(self.end_epsilon, self.start_epsilon - (self.start_epsilon - self.end_epsilon) * (episode / (0.6 * max_episode)))

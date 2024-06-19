@@ -3,10 +3,9 @@ import torch.nn as nn
 from torch.distributions import Categorical
 
 class ActorNetwork(nn.Module):
-    def __init__(self, state_dim, action_dim, lr, eps):
+    def __init__(self, state_dim, action_dim, lr, eps, fc):
         super(ActorNetwork, self).__init__()
         # Width of the network
-        fc = 256
         # Initialize actor network
         self.actor = nn.Sequential(
             nn.Linear(state_dim, fc),

@@ -5,10 +5,9 @@ import torch.nn.functional as F
 import numpy as np
 
 class ActorNetwork(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, hidden_size):
         super().__init__()
-        self.hidden_size = 256
-        self.recurrent_layers = 1
+        self.hidden_size = hidden_size
         # Create 1 Layer of LSTM
         self.lstm = nn.LSTM(state_dim, self.hidden_size, batch_first=True)
         for name, param in self.lstm.named_parameters():

@@ -1,0 +1,7 @@
+lr : 0.01
+fc1 : 256
+fc2 : 256
+gamma : 0.99 
+tau : 0.01
+policy_regulariser : 0.001
+max_grad_norm : 0.5

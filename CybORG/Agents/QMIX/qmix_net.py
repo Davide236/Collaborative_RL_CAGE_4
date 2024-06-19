@@ -4,12 +4,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class AgentNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, output_dim, fc):
         super(AgentNetwork, self).__init__()
-        self.layed_dim = 256
-        self.fc1 = nn.Linear(input_dim, self.layed_dim)
-        self.fc2 = nn.Linear(self.layed_dim, self.layed_dim)
-        self.fc3 = nn.Linear(self.layed_dim, output_dim)
+        self.fc = fc
+        self.fc1 = nn.Linear(input_dim, self.fc)
+        self.fc2 = nn.Linear(self.fc, self.fc)
+        self.fc3 = nn.Linear(self.fc, output_dim)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -20,9 +20,9 @@ class AgentNetwork(nn.Module):
 
 class QMixNet(nn.Module):
 
-    def __init__(self, n_agents: int, state_shape: int):
+    def __init__(self, n_agents, state_shape, fc):
         super(QMixNet, self).__init__()
-        self.qmix_hidden_dim = 256
+        self.qmix_hidden_dim = fc
         self.n_agents = n_agents
         self.state_shape = state_shape
         #print(f'QMIXnet. Agents: {n_agents}, total central space: {state_shape}')
