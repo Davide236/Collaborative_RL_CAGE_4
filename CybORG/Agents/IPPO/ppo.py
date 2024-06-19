@@ -1,5 +1,6 @@
 from CybORG.Agents.IPPO.networks import ActorCritic
 from CybORG.Agents.Messages.message_handler import MessageHandler
+from CybORG.Agents.IPPO.buffer import ReplayBuffer
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
@@ -12,7 +13,7 @@ class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, messages):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
-        self.init_rollout_memory()
+        self.memory = ReplayBuffer()
         self.init_checkpoint(number)
         self.init_check_memory(number)
         # Initialize actor and critic network
@@ -39,10 +40,7 @@ class PPO:
         final_state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action, logprob, state_value = self.policy.action_selection(final_state) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
-        self.observation_mem.append(final_state) 
-        self.logprobs_mem.append(logprob)
-        self.actions_mem.append(action) 
-        self.episodic_state_val.append(state_value) 
+        self.memory.save_beginning_episode(final_state, logprob, action, state_value)
         message = []
         if self.use_messages:
             message = self.message_handler.prepare_message(state, action.item())
@@ -108,34 +106,6 @@ class PPO:
         self.minibatch_number = 1
         self.target_kl = 0.02 # 0.02 is also an option here
 
-    # Initialize the rollout memory
-    def init_rollout_memory(self):
-        self.observation_mem = []
-        self.actions_mem = []
-        self.rewards_mem = []
-        self.terminal_mem = [] 
-        self.logprobs_mem = []
-        self.state_val_mem = [] 
-        self.action_mask_mem = [] #### 
-        self.episodic_rewards = [] #
-        self.episodic_termination = []
-        self.episodic_state_val = []
-    
-    # Clear the rollout memory
-    def clear_rollout_memory(self):
-        del self.observation_mem[:]
-        del self.actions_mem[:]
-        del self.rewards_mem[:]
-        del self.terminal_mem[:]
-        del self.logprobs_mem[:]
-        del self.state_val_mem[:]
-        del self.action_mask_mem[:]
-    
-    # Clear the episodic memory
-    def clear_episodic(self):
-        del self.episodic_rewards[:]
-        del self.episodic_termination[:]
-        del self.episodic_state_val[:]
      
     
     def anneal_lr(self, steps):
@@ -170,22 +140,10 @@ class PPO:
                     of the actions (actor network) and the entropy of the action distribution.
         """
         state_value = self.policy.critic(observations).squeeze()
-        #masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.policy.actor(observations)
         mean = self.policy.actor(observations)
         dist = Categorical(mean)
-        #dist = Categorical(masked_action_probs)
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
-        # Compute logits from the actor network
-        #logits = self.policy.actor(observations)
-        # Apply action masking to the logits
-        #masked_logits = torch.where(action_mask.bool(), logits, torch.tensor(-1e8))
-        #masked_distribution = Categorical(logits=masked_logits)
-        # Compute log probabilities of actions, considering action masking
-        #log_probs = masked_distribution.log_prob(actions)
-    
-        # Compute entropy of the action distribution, considering action masking
-        #entropy = masked_distribution.entropy()
         return state_value, log_probs, entropy
     
     def calculate_gae(self, rewards, values, terminated):
@@ -248,9 +206,7 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs = torch.cat(self.observation_mem, dim=0)
-        acts = torch.tensor(self.actions_mem, dtype=torch.float)
-        logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()
+        obs, acts, logprob, rewards, state_val, terminal = self.memory.get_batch()
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
@@ -260,7 +216,7 @@ class PPO:
         # Calculate the size of the minibatches
         minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
-        A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
+        A_k = self.calculate_gae(rewards, state_val, terminal)
         state_values, _, _ = self.evaluate(obs, acts)
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
@@ -311,7 +267,7 @@ class PPO:
                 print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
-        self.clear_rollout_memory()
+        self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)
 

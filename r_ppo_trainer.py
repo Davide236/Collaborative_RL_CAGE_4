@@ -13,7 +13,7 @@ EPISODE_LENGTH = 500
 MAX_EPS = 4000
 LOAD_NETWORKS = False
 LOAD_BEST = False
-ROLLOUT = 10
+ROLLOUT = 2
 
 def main():
     # Initialize CybORG environment
@@ -48,8 +48,6 @@ def main():
         r = []
         for j in range(EPISODE_LENGTH): # Episode length
             count += 1
-            for agent_name, agent in agents.items():
-                agent.save_lstm_state()
             # Action selection for all agents
             actions = {
                 agent_name: agent.get_action(
@@ -64,8 +62,7 @@ def main():
             # Append the rewards and termination for each agent
             for agent_name, agent in agents.items():
                 done = termination[agent_name] or truncation[agent_name]
-                agent.episodic_rewards.append(reward[agent_name]) # Save reward
-                agent.episodic_termination.append(done) # Save termination
+                agent.memory.save_end_episode(reward[agent_name], done)
             # This terminates if all agent have 'termination=true'
             done = {
                 agent: termination.get(agent, False) or truncation.get(agent, False)
@@ -89,8 +86,7 @@ def main():
             reward_before_update = 0
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
-            agent.append_episodic()
-            agent.clear_episodic()
+            agent.memory.append_episodic()
             # Learn at every episode
             if (i+1) % ROLLOUT == 0:
                 print(f"Policy update for  {agent_name}. Total steps: {count}")

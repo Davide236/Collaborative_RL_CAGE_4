@@ -1,5 +1,5 @@
-#from network2 import Actor, Critic
 from CybORG.Agents.R_IPPO.network import Actor, Critic
+from CybORG.Agents.R_IPPO.buffer import ReplayBuffer
 import torch 
 import torch.nn as nn
 import numpy as np
@@ -12,7 +12,7 @@ class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
-        self.init_rollout_memory()
+        self.memory = ReplayBuffer()
         self.init_check_memory(number)
         self.init_checkpoint(number)
         self.actor = Actor(state_dimension,action_dimension)
@@ -41,10 +41,7 @@ class PPO:
         state_value = self.critic(state)#, terminal)
         # Part 3 - Continued: Collect partial trajectories
         action = action_distribution.sample()
-        self.episodic_state_val.append(state_value.detach()) 
-        self.episodic_state.append(state)
-        self.episodic_acts.append(action.detach())
-        self.episodic_logprobs.append(action_distribution.log_prob(action).detach())
+        self.memory.save_beginning_episode(state,action_distribution.log_prob(action).detach(), action.detach(),state_value.detach())
         return action.item()
     
     # Initialize arrays to save important information for the training
@@ -107,105 +104,6 @@ class PPO:
         self.minibatch_number = 1
         self.target_kl = 0.02 # 0.02 is also an option here
 
-    # Initialize the rollout memory
-    def init_rollout_memory(self):
-        # Memory used for collecting total trajectories
-        self.observation_mem = []
-        self.actions_mem = []
-        self.rewards_mem = []
-        self.terminal_mem = [] 
-        self.logprobs_mem = []
-        self.state_val_mem = [] 
-        self.actor_hidden_states = []
-        self.actor_cell_states = []
-        self.critic_hidden_states = []
-        self.critic_cell_states = []
-        # Memory used to compute the state value in a different way
-        self.state_val_mem_final = []
-        self.value_mem_other = []
-        # Initialize episodic memory
-        self.init_episodic_memory()
-    
-    # Initialize episodic memory (just a simple way to divide each episode)
-    # This memory is then appended to the 'rollout_memory' so that each episode its divided
-    def init_episodic_memory(self):
-        self.episodic_rewards = [] 
-        self.episodic_termination = []
-        self.episodic_state_val = []
-        self.episodic_state = []
-        self.episodic_acts = []
-        self.episodic_logprobs = []
-        self.episodic_hidden_states = []
-        self.episodic_hidden_cells = []
-        self.episodic_critic_hidden = []
-        self.episodic_critic_cells = []
-
-    # Clear the rollout memory
-    def clear_rollout_memory(self):
-        del self.observation_mem[:]
-        del self.actions_mem[:]
-        del self.rewards_mem[:]
-        del self.terminal_mem[:]
-        del self.logprobs_mem[:]
-        del self.state_val_mem[:]
-        del self.actor_hidden_states[:]
-        del self.actor_cell_states[:]
-        del self.critic_hidden_states[:]
-        del self.critic_cell_states[:]
-        del self.state_val_mem_final[:]
-        #
-        del self.value_mem_other[:]
-
-    
-    # Save the episodic memory to the rollout memory
-    def append_episodic(self):
-        self.rewards_mem.append(self.episodic_rewards[:])
-        self.terminal_mem.append(self.episodic_termination[:])
-        self.observation_mem.append(torch.cat(self.episodic_state[:]))
-        self.actions_mem.append(torch.cat(self.episodic_acts[:]))
-        self.logprobs_mem.append(torch.cat(self.episodic_logprobs[:]))
-        self.actor_hidden_states.append(torch.cat(self.episodic_hidden_states[:]))
-        self.actor_cell_states.append(torch.cat(self.episodic_hidden_cells[:]))
-        self.critic_hidden_states.append(torch.cat(self.episodic_critic_hidden[:]))
-        self.critic_cell_states.append(torch.cat(self.episodic_critic_cells[:]))
-        # Two different state values calculation. One is based on the state_value calculated in the get_action function
-        # The other is based on the final hidden value of the state (so a recalculation of the state values at the end of the episode) 
-        values_memory = []
-        # TODO: Change this
-        # for state in self.episodic_state:
-        #     vals = self.critic(state)#, torch.cat(self.episodic_acts))
-        #     values_memory.append(vals.detach())
-        self.state_val_mem_final.append(values_memory)
-        self.state_val_mem.append(self.episodic_state_val[:])
-        #
-        self.value_mem_other.append(torch.cat(self.episodic_state_val[:]))
-
-        self.clear_episodic()
-        
-    # Clear the episodic memory
-    def clear_episodic(self):
-        del self.episodic_rewards[:]
-        del self.episodic_termination[:]
-        del self.episodic_state_val[:]
-        del self.episodic_state[:]
-        del self.episodic_acts[:]
-        del self.episodic_logprobs[:]
-        del self.episodic_hidden_cells[:]
-        del self.episodic_hidden_states[:]
-        del self.episodic_critic_hidden[:]
-        del self.episodic_critic_cells[:]
-
-    # Save the current recurrent cells
-    def save_lstm_state(self):
-        self.episodic_hidden_states.append(self.actor.recurrent_cell[0].squeeze(0).detach())
-        self.episodic_hidden_cells.append(self.actor.recurrent_cell[1].squeeze(0).detach())
-        self.episodic_critic_hidden.append(self.critic.recurrent_cell[0].squeeze(0).detach())
-        self.episodic_critic_cells.append(self.critic.recurrent_cell[1].squeeze(0).detach())
-    
-    # Save the rest of the rollout data
-    def save_rollout_data(self, reward, terminated):
-        self.episodic_rewards.append(reward)
-        self.episodic_termination.append(terminated)
 
     
     # In this case only 1 worker (no parallel implementation for easier debugging)
@@ -257,9 +155,9 @@ class PPO:
                 advantage = delta + self.gamma*self.gae_lambda*(1-ep_dones[t])*last_advantage
                 # Save the advantage to be used in the next calculation
                 last_advantage = advantage
+                #advantages.append(advantage.unsqueeze(0))
                 advantages.append(advantage)
             # TODO: Change this
-
             batch_advantage.append(torch.cat(advantages, dim=0).squeeze())
         # Return list of advantages (padded)
         reversed_tensor_array = [torch.flip(tensor, dims=[0]) for tensor in batch_advantage]
@@ -272,65 +170,35 @@ class PPO:
         self.critic_loss.append(c_loss.item())
         self.actor_loss.append(a_loss.item())
     
-    # Pad the memories of the different episodes, so that each episodes length is the same!
-    def pad_memory(self):
-        obs = pad_sequence(self.observation_mem, batch_first=True, padding_value=0)
-        acts = pad_sequence(self.actions_mem, batch_first=True, padding_value=0)
-        logprob = pad_sequence(self.logprobs_mem, batch_first=True, padding_value=0)
-        actor_hidden_states = pad_sequence(self.actor_hidden_states, batch_first=True, padding_value=0)
-        actor_cell_states = pad_sequence(self.actor_cell_states, batch_first=True, padding_value=0)
-        critic_hidden_states = pad_sequence(self.critic_hidden_states, batch_first=True, padding_value=0)
-        critic_cell_states = pad_sequence(self.critic_cell_states, batch_first=True, padding_value=0)
-        terminal_list = [torch.tensor([1.0 if value else 0.0 for value in seq]) for seq in self.terminal_mem]
-        terminal = torch.cat(terminal_list, dim=0)
-        # state_values = pad_sequence(self.state_val_mem_final, batch_first=True, padding_value=0).squeeze()
-        state_values = pad_sequence(self.value_mem_other, batch_first=True, padding_value=0).squeeze()
-        return obs, acts, logprob, actor_hidden_states, actor_cell_states,\
-                critic_hidden_states, critic_cell_states, terminal, state_values
     
     # Step 4: Learning from past observations
     def learn(self,total_steps):
         # Pad memory
-        obs, acts, logprob, actor_hidden_states, actor_cell_states,\
-            critic_hidden_states, critic_cell_states, terminal, state_values = self.pad_memory()
-        
-        counter = acts.shape[0]
-        sequence_length = acts.shape[1]
-        # print("START")
-        # print(obs.shape)
-        # print(sequence_length)
-        step = terminal.size(0)
-        index = np.arange(step)
+        obs, acts, logprob, state_values, rewards, state_vals_unpadded, terminal = self.memory.get_batch()
+        # Number of episodes and length of each episode
+        counter = state_values.shape[0]
+        sequence_length = state_values.shape[1]
         # Save Losses
         critic_loss = 0
         actor_loss = 0
         entropy_loss = 0
-        # Calculate the size of the minibatches (not used in this implementation)
-        minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
-        A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
+        A_k = self.calculate_gae(rewards, state_vals_unpadded, terminal)
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
         A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
 
-        # CHANGED
-        actor_hidden_states = actor_hidden_states[:, 0, :].unsqueeze(0)
-        actor_cell_states = actor_cell_states[:, 0, :].unsqueeze(0)
-        critic_hidden_states = critic_hidden_states[:, 0, :].unsqueeze(0)
-        critic_cell_states = critic_cell_states[:, 0, :].unsqueeze(0)
-        acts = acts.view(-1)
+        # Change representation of data
         A_k = A_k.view(-1)
         rtgs = rtgs.view(-1)
-        logprob = logprob.view(-1)
         state_values = state_values.view(-1)
-        ####
+
         # Reduce learning rate
         self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs
         for i in range(self.epochs):
-            self.actor.recurrent_cell = (actor_hidden_states, actor_cell_states)
-            self.critic.recurrent_cell = (critic_hidden_states, critic_cell_states)
+            self.set_initial_state(counter)
             # Get the data of the episode
             mini_obs = obs
             mini_acts = acts
@@ -378,7 +246,7 @@ class PPO:
                 print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
-        self.clear_rollout_memory()
+        self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)
 

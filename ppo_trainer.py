@@ -67,8 +67,7 @@ def main():
             # Append the rewards and termination for each agent
             for agent_name, agent in agents.items():
                 done = termination[agent_name] or truncation[agent_name]
-                agent.episodic_rewards.append(reward[agent_name]) # Save reward
-                agent.episodic_termination.append(done) # Save termination
+                agent.memory.save_end_episode(reward[agent_name], done)
             # This terminates if all agent have 'termination=true'
             done = {
                 agent: termination.get(agent, False) or truncation.get(agent, False)
@@ -96,10 +95,7 @@ def main():
             partial_rewards = 0  
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
-            agent.rewards_mem.append(agent.episodic_rewards[:])
-            agent.state_val_mem.append(agent.episodic_state_val[:])
-            agent.terminal_mem.append(agent.episodic_termination[:])
-            agent.clear_episodic()
+            agent.memory.save_episode()
             # Every 5 episodes perform a policy update
             if (i+1) % ROLLOUT == 0:
                 print(f"Policy update for  {agent_name}. Total steps: {count}")

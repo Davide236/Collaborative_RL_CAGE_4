@@ -1,4 +1,5 @@
 from CybORG.Agents.R_MAPPO.actor_network import ActorNetwork
+from CybORG.Agents.R_MAPPO.buffer import ReplayBuffer
 from torch.distributions import Categorical
 from torch.nn.utils.rnn import pad_sequence
 
@@ -13,7 +14,7 @@ class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, critic, critic_optim):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
-        self.init_rollout_memory()
+        self.memory = ReplayBuffer()
         self.init_checkpoint(number)
         self.init_check_memory(number)
         # Save the number of the agent
@@ -42,10 +43,7 @@ class PPO:
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
         action_distribution = self.actor(state)
         action = action_distribution.sample()
-        self.episodic_state_val.append(state_value.detach()) 
-        self.episodic_state.append(state)
-        self.episodic_acts.append(action.detach())
-        self.episodic_logprobs.append(action_distribution.log_prob(action).detach()) 
+        self.memory.save_beginning_episode(state, action_distribution.log_prob(action).detach(), action.detach(), state_value.detach())
         return action.item()
     
     # Initialize arrays to save important information for the training
@@ -108,70 +106,7 @@ class PPO:
         self.minibatch_number = 1 
         self.target_kl = 0.02 # 0.02 is also an option here
 
-    # Initialize the rollout memory
-    # Initialize the rollout memory
-    def init_rollout_memory(self):
-        # Memory used for collecting total trajectories
-        self.observation_mem = []
-        self.actions_mem = []
-        self.rewards_mem = []
-        self.terminal_mem = [] 
-        self.logprobs_mem = []
-        self.state_val_mem = [] 
-        self.actor_hidden_states = []
-        self.actor_cell_states = []
-        self.critic_hidden_states = []
-        self.critic_cell_states = []
-        # Memory used to compute the state value in a different way
-        self.state_val_mem_final = []
-        self.value_mem_other = []
-        self.global_observations_mem = []
-        # Initialize episodic memory
-        self.init_episodic_memory()
-    
-    # Initialize episodic memory (just a simple way to divide each episode)
-    # This memory is then appended to the 'rollout_memory' so that each episode its divided
-    def init_episodic_memory(self):
-        self.episodic_rewards = [] 
-        self.episodic_termination = []
-        self.episodic_state_val = []
-        self.episodic_state = []
-        self.episodic_acts = []
-        self.episodic_logprobs = []
-        self.episodic_global_observations_mem = []
-        self.episodic_hidden_states = []
-        self.episodic_hidden_cells = []
-        self.episodic_critic_hidden = []
-        self.episodic_critic_cells = []
-    
-    # Clear the rollout memory
-    def clear_rollout_memory(self):
-        del self.observation_mem[:]
-        del self.actions_mem[:]
-        del self.rewards_mem[:]
-        del self.terminal_mem[:]
-        del self.logprobs_mem[:]
-        del self.state_val_mem[:]
-        del self.actor_hidden_states[:]
-        del self.actor_cell_states[:]
-        del self.critic_hidden_states[:]
-        del self.critic_cell_states[:]
-        del self.global_observations_mem[:]
-        del self.state_val_mem_final[:]
-    
-    # Clear the episodic memory
-    def clear_episodic(self):
-        del self.episodic_rewards[:]
-        del self.episodic_termination[:]
-        del self.episodic_state_val[:]
-        del self.episodic_state[:]
-        del self.episodic_acts[:]
-        del self.episodic_logprobs[:]
-        del self.episodic_hidden_cells[:]
-        del self.episodic_hidden_states[:]
-        del self.episodic_critic_hidden[:]
-        del self.episodic_critic_cells[:]
-        del self.episodic_global_observations_mem[:]
+
      
     
     def anneal_lr(self, steps):
@@ -188,20 +123,6 @@ class PPO:
         self.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.critic_optimizer.param_groups[0]["lr"] = new_lr
 
-    def append_episodic(self):
-        self.rewards_mem.append(self.episodic_rewards[:])
-        self.state_val_mem.append(self.episodic_state_val[:])
-        self.terminal_mem.append(self.episodic_termination[:])
-        self.observation_mem.append(torch.cat(self.episodic_state[:]))
-        self.state_val_mem_final.append(torch.cat(self.episodic_state_val[:]))
-        self.actions_mem.append(torch.cat(self.episodic_acts[:]))
-        self.logprobs_mem.append(torch.cat(self.episodic_logprobs[:]))
-        self.global_observations_mem.append(torch.cat(self.episodic_global_observations_mem[:]))
-        self.actor_hidden_states.append(torch.cat(self.episodic_hidden_states[:]))
-        self.actor_cell_states.append(torch.cat(self.episodic_hidden_cells[:]))
-        self.critic_hidden_states.append(torch.cat(self.episodic_critic_hidden[:]))
-        self.critic_cell_states.append(torch.cat(self.episodic_critic_cells[:]))
-        self.clear_episodic()
     
     def evaluate(self, global_obs, observations, actions, sequence_length):
         action_distribution = self.actor(observations, sequence_length)
@@ -251,32 +172,7 @@ class PPO:
     def set_initial_state(self, workers):
         self.actor.get_init_state(workers)
     
-    def pad_memory(self):
-        obs = pad_sequence(self.observation_mem, batch_first=True, padding_value=0)
-        acts = pad_sequence(self.actions_mem, batch_first=True, padding_value=0)
-        logprob = pad_sequence(self.logprobs_mem, batch_first=True, padding_value=0)
-        global_obs = pad_sequence(self.global_observations_mem, batch_first=True, padding_value=0)
-        terminal_list = [torch.tensor([1.0 if value else 0.0 for value in seq]) for seq in self.terminal_mem]
-        terminal = torch.cat(terminal_list, dim=0)
-        state_values = pad_sequence(self.state_val_mem_final, batch_first=True, padding_value=0).squeeze()
-        actor_hidden_states = pad_sequence(self.actor_hidden_states, batch_first=True, padding_value=0)
-        actor_cell_states = pad_sequence(self.actor_cell_states, batch_first=True, padding_value=0)
-        critic_hidden_states = pad_sequence(self.critic_hidden_states, batch_first=True, padding_value=0)
-        critic_cell_states = pad_sequence(self.critic_cell_states, batch_first=True, padding_value=0)
-        # Added this
-        actor_hidden_states = actor_hidden_states[:, 0, :].unsqueeze(0)
-        actor_cell_states = actor_cell_states[:, 0, :].unsqueeze(0)
-        critic_hidden_states = critic_hidden_states[:, 0, :].unsqueeze(0)
-        critic_cell_states = critic_cell_states[:, 0, :].unsqueeze(0)
-        return obs, acts, logprob, terminal, global_obs, state_values, actor_hidden_states, actor_cell_states, critic_hidden_states, critic_cell_states
     
-
-    def save_lstm_state(self):
-        self.episodic_hidden_states.append(self.actor.recurrent_cell[0].squeeze(0).detach())
-        self.episodic_hidden_cells.append(self.actor.recurrent_cell[1].squeeze(0).detach())
-        self.episodic_critic_hidden.append(self.critic.recurrent_cell[0].squeeze(0).detach())
-        self.episodic_critic_cells.append(self.critic.recurrent_cell[1].squeeze(0).detach())
-
     def learn(self,total_steps):
         """
         Args: 
@@ -290,14 +186,15 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs, acts, logprob, terminal, global_obs, state_values, actor_hidden_states, actor_cell_states, critic_hidden_states, critic_cell_states = self.pad_memory()
-        sequence_length = acts.shape[1]
+        obs, acts, logprob, state_values, global_obs, rewards, state_vals_unpadded, terminal = self.memory.get_batch()
+        sequence_length = state_values.shape[1]
+        steps = state_values.shape[0]
         # Save Losses
         critic_loss = 0
         actor_loss = 0
         entropy_loss = 0
         # Calculate advantage per timestep
-        A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
+        A_k = self.calculate_gae(rewards, state_vals_unpadded, terminal)
         # TODO: Check this
         # state_values = self.critic(global_obs, sequence_length).squeeze()
         # Future rewards based on advantage and state value
@@ -305,17 +202,17 @@ class PPO:
         # Normalize the advantage
         A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
         ### TODO: Check those
-        acts = acts.view(-1)
         A_k = A_k.view(-1)
         rtgs = rtgs.view(-1)
-        logprob = logprob.view(-1)
         state_values = state_values.view(-1)
         # Perform the updates for X amount of epochs
         self.anneal_lr(total_steps)
         for i in range(self.epochs):
             # TODO: Check those
-            self.actor.recurrent_cell = (actor_hidden_states, actor_cell_states)
-            self.critic.recurrent_cell = (critic_hidden_states, critic_cell_states)
+            self.set_initial_state(steps)
+            self.critic.get_init_state(steps)
+            #self.actor.recurrent_cell = (actor_hidden_states, actor_cell_states)
+            #self.critic.recurrent_cell = (critic_hidden_states, critic_cell_states)
             # Get the data of the episode
             mini_obs = obs
             mini_acts = acts
@@ -356,6 +253,6 @@ class PPO:
                 print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
-        self.clear_rollout_memory()
+        self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)

@@ -1,4 +1,5 @@
 from CybORG.Agents.MAPPO.actor_network import ActorNetwork
+from CybORG.Agents.MAPPO.buffer import ReplayBuffer
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
@@ -11,7 +12,7 @@ class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, critic):
         # Initialize Hyperparameters, Rollout memory and Checkpoints
         self.init_hyperparameters(total_episodes)
-        self.init_rollout_memory()
+        self.memory = ReplayBuffer()
         self.init_checkpoint(number)
         self.init_check_memory(number)
         # Save the number of the agent
@@ -21,7 +22,7 @@ class PPO:
         # Initialize critic
         self.critic = critic
     
-    def get_action(self, state, action_mask, state_value):
+    def get_action(self, state, state_value):
         """
         Args:
             state: The current observation state of the agent.
@@ -36,14 +37,11 @@ class PPO:
         """
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob = self.actor.action_selection(state, action_mask) # Under the old policy
+        action, logprob = self.actor.action_selection(state) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
-        self.observation_mem.append(state) 
-        self.logprobs_mem.append(logprob)
-        self.actions_mem.append(action) 
-        self.action_mask_mem.append(action_mask)
-        self.episodic_state_val.append(state_value) 
-        return action.item()
+        self.memory.save_beginning_episode(state, logprob, action, state_value) 
+        message = []
+        return action.item(), message
 
     # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
@@ -105,38 +103,6 @@ class PPO:
         self.minibatch_number = 1 
         self.target_kl = 0.02 # 0.02 is also an option here
 
-    # Initialize the rollout memory
-    def init_rollout_memory(self):
-        self.observation_mem = []
-        self.actions_mem = []
-        self.rewards_mem = []
-        self.terminal_mem = [] 
-        self.logprobs_mem = []
-        self.state_val_mem = [] 
-        self.action_mask_mem = [] #### 
-        self.message_mem = []
-        self.episodic_rewards = [] #
-        self.episodic_termination = []
-        self.episodic_state_val = []
-        self.global_observations_mem = []
-    
-    # Clear the rollout memory
-    def clear_rollout_memory(self):
-        del self.observation_mem[:]
-        del self.actions_mem[:]
-        del self.rewards_mem[:]
-        del self.terminal_mem[:]
-        del self.logprobs_mem[:]
-        del self.state_val_mem[:]
-        del self.action_mask_mem[:]
-        del self.message_mem[:]
-        del self.global_observations_mem[:]
-    
-    # Clear the episodic memory
-    def clear_episodic(self):
-        del self.episodic_rewards[:]
-        del self.episodic_termination[:]
-        del self.episodic_state_val[:]
      
     
     def anneal_lr(self, steps):
@@ -153,12 +119,11 @@ class PPO:
         self.actor.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.critic.critic_optimizer.param_groups[0]["lr"] = new_lr
     
-    def evaluate(self, global_obs, observations, actions, action_mask):
+    def evaluate(self, global_obs, observations, actions):
         """
         Args: 
             observations: list of observation (states) recorded by the agent
             actions: list of actions performed for each of the observations
-            action_mask: list of masked action values at each timestep
 
         Returns: 
             state_value: the value associated with the input observation, obtained by querying the critic network
@@ -173,20 +138,9 @@ class PPO:
         # TODO: Change this
         state_value = self.critic.get_state_value(global_obs).squeeze()
         masked_action_probs = self.actor(observations)
-        #mean = self.policy.actor(observations)
         dist = Categorical(masked_action_probs)
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
-        # Compute logits from the actor network
-        #logits = self.policy.actor(observations)
-        # Apply action masking to the logits
-        #masked_logits = torch.where(action_mask.bool(), logits, torch.tensor(-1e8))
-        #masked_distribution = Categorical(logits=masked_logits)
-        # Compute log probabilities of actions, considering action masking
-        #log_probs = masked_distribution.log_prob(actions)
-    
-        # Compute entropy of the action distribution, considering action masking
-        #entropy = masked_distribution.entropy()
         return state_value, log_probs, entropy
     
     # TODO: Calculate GAE here can be done for all the agents since it's centralized(?)
@@ -250,12 +204,7 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs = torch.cat(self.observation_mem, dim=0)
-        global_obs = torch.cat(self.global_observations_mem, dim=0)
-        # TODO: Print here
-        acts = torch.tensor(self.actions_mem, dtype=torch.float)
-        logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()
-        action_mask = torch.tensor(self.action_mask_mem, dtype=torch.int)
+        obs, global_obs, acts, logprob, rewards, state_vals, terminal = self.memory.get_batch()
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
@@ -265,8 +214,8 @@ class PPO:
         # Calculate the size of the minibatches
         minibatch_size = step // self.minibatch_number
         # Calculate advantage per timestep
-        A_k = self.calculate_gae(self.rewards_mem, self.state_val_mem, self.terminal_mem)
-        state_values, _, _ = self.evaluate(global_obs, obs, acts, action_mask)
+        A_k = self.calculate_gae(rewards, state_vals, terminal)
+        state_values, _, _ = self.evaluate(global_obs, obs, acts)
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
@@ -287,8 +236,7 @@ class PPO:
                 mini_log_prob = logprob[idx]
                 mini_advantage = A_k[idx]
                 mini_rtgs = rtgs[idx]
-                batch_mask = action_mask[idx]
-                state_values, curr_log_probs, entropy = self.evaluate(mini_global_obs,mini_obs, mini_acts, batch_mask)
+                state_values, curr_log_probs, entropy = self.evaluate(mini_global_obs,mini_obs, mini_acts)
                 # Compute policy loss with the formula
                 entropy_loss = entropy.mean()
                 logrations = curr_log_probs - mini_log_prob
@@ -318,6 +266,6 @@ class PPO:
                 print(f"Breaking Here: {approx_kl}")
                 break
         # Clear memory
-        self.clear_rollout_memory()
+        self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)

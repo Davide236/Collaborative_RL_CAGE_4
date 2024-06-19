@@ -1,7 +1,7 @@
 from CybORG import CybORG
 from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
-from CybORG.Agents.PPO.ppo import PPO
+from CybORG.Agents.MAPPO.mappo import PPO
 from CybORG.Agents.MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
@@ -17,7 +17,7 @@ EPISODE_LENGTH = 500
 MAX_EPS = 4000
 LOAD_NETWORKS = False
 LOAD_BEST = False
-ROLLOUT = 10
+ROLLOUT = 2
 
 def concatenate_observations(observations, agents):
     observation_list = []
@@ -66,7 +66,6 @@ def main():
             actions_messages = {
                 agent_name: agent.get_action(
                     observations[agent_name],
-                    env.action_mask(agent_name), 
                     state_value
                 )
                 for agent_name, agent in agents.items() 
@@ -80,9 +79,7 @@ def main():
             # Append the rewards and termination for each agent
             for agent_name, agent in agents.items():
                 done = termination[agent_name] or truncation[agent_name]
-                agent.episodic_rewards.append(reward[agent_name]) # Save reward
-                agent.episodic_termination.append(done) # Save termination
-                agent.global_observations_mem.append(observations_list)
+                agent.memory.save_end_episode(reward[agent_name], done, observations_list)
             # This terminates if all agent have 'termination=true'
             done = {
                 agent: termination.get(agent, False) or truncation.get(agent, False)
@@ -113,10 +110,7 @@ def main():
             partial_rewards = 0 
         # Save rewards, state values and termination flags (divided per episodes)    
         for agent_name, agent in agents.items():
-            agent.rewards_mem.append(agent.episodic_rewards[:])
-            agent.state_val_mem.append(agent.episodic_state_val[:])
-            agent.terminal_mem.append(agent.episodic_termination[:])
-            agent.clear_episodic()
+            agent.memory.save_episode()
             # Every 5 episodes perform a policy update
             if (i+1) % ROLLOUT == 0:
                 print(f"Policy update for  {agent_name}. Total steps: {count}")

@@ -38,7 +38,7 @@ def train_VDN_agent(env_name, lr, gamma, batch_size, buffer_limit, log_interval,
     
     # For performance monitoring
     n_agents = len(actor_dims)
-    EPISODES = 25000
+    EPISODES = 10000
     for episode_i in range(EPISODES):
         agents.update_epsilon(episode_i, EPISODES)
         state, _ = env.reset()
@@ -55,7 +55,7 @@ def train_VDN_agent(env_name, lr, gamma, batch_size, buffer_limit, log_interval,
                 for i in range(3):
                     #actions[agent] = vdnAgents.act(vdnAgents.combine(obs[agent], agent), agent, epsilon)
                     actions[f'agent_{i}'] = int(action[i])
-                next_state, rewards, term, trunc, info = env.step(actions)
+                next_state, rewards, term, trunc, _ = env.step(actions)
                 terminated = np.array(transform_observations(term))
                 truncated = np.array(transform_observations(trunc))
                 reward = transform_observations(rewards)
@@ -71,13 +71,14 @@ def train_VDN_agent(env_name, lr, gamma, batch_size, buffer_limit, log_interval,
                 if all(done):
                     break
             
-                
+              
         if agents.memory.size() > 2000:
             agents.train()
         
         
         full_rwd += total_reward
         avg_rewd.append(full_rwd/(episode_i+1))
+        print(f'Episode {episode_i} finished, reward :{total_reward}, AVG: {full_rwd/(episode_i+1)}')
         if episode_i % update_target_interval == 0:
             agents.copy_network()
 

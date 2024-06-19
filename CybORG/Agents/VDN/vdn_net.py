@@ -30,6 +30,7 @@ class QNet(nn.Module):
         return torch.cat(q_values, dim=1), torch.cat(next_hidden, dim=1)
 
     def sample_action(self, obs, hidden, epsilon):
+        # TODO: Check this
         out, hidden = self.forward(obs, hidden)
         mask = (torch.rand((out.shape[0],)) <= epsilon)
         action = torch.empty((out.shape[0], out.shape[1],))

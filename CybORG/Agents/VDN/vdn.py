@@ -14,8 +14,8 @@ class VDN():
 
         self.n_agents = n_agents
         self.n_actions = n_actions
-        self.q_network = QNet(actor_dims, n_actions, recurrent=False)
-        self.target_network = QNet(actor_dims, n_actions, recurrent=False)
+        self.q_network = QNet(actor_dims, n_actions, recurrent=True)
+        self.target_network = QNet(actor_dims, n_actions, recurrent=True)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=self.lr)
