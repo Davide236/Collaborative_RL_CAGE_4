@@ -5,15 +5,12 @@ from CybORG.Agents.IPPO.ippo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 
-import csv
-import matplotlib.pyplot as plt
+from utils import save_statistics, save_agent_data, save_agent_network
+
 
 class PPOTrainer:
     EPISODE_LENGTH = 500
     MAX_EPS = 4000
-    LOAD_NETWORKS = False
-    LOAD_BEST = False
-    MESSAGES = True
     ROLLOUT = 10
 
     def __init__(self, args):
@@ -21,7 +18,7 @@ class PPOTrainer:
         self.total_rewards = []
         self.average_rewards = []
         self.partial_rewards = 0
-        self.best_reward = -2000
+        self.best_reward = -8000
         self.count = 0  # Keep track of total episodes
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
@@ -68,7 +65,7 @@ class PPOTrainer:
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
 
                 # Perform action on the environment
-                if self.MESSAGES:
+                if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
@@ -100,7 +97,8 @@ class PPOTrainer:
                 if avg_rwd > self.best_reward:
                     self.best_reward = avg_rwd
                     for agent_name, agent in self.agents.items():
-                        agent.save_network()
+                        save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.checkpoint_file_actor)
+                        save_agent_network(agent.policy.critic, agent.policy.critic_optimizer, agent.checkpoint_file_critic)
                 self.partial_rewards = 0  
             # Save rewards, state values and termination flags (divided per episodes)    
             for agent_name, agent in self.agents.items():
@@ -109,25 +107,9 @@ class PPOTrainer:
                 if (i+1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count) 
-        self.save_statistics()
-
-    def save_statistics(self):
-        # Save loss data
+        save_agent_data(self.agents)
         for agent_name, agent in self.agents.items():
-            agent.save_statistics_csv() 
-            agent.save_last_epoch() 
-        # Graph of average rewards and print output results 
-        rewards_mean = mean(self.total_rewards)
-        rewards_stdev = stdev(self.total_rewards)
-        total_rewards_transposed = [[elem] for elem in self.average_rewards]
-        with open('reward_history.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Rewards'])  # Write header
-            writer.writerows(total_rewards_transposed)
-        plt.plot(self.total_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.title('Reward per Episode')
-        plt.grid(True)
-        plt.show()
-        print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
+            save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)
+            save_agent_network(agent.policy.critic, agent.policy.critic_optimizer, agent.last_checkpoint_file_critic)
+        save_statistics(self.total_rewards, self.average_rewards)
+

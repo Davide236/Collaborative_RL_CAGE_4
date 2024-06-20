@@ -9,14 +9,12 @@ import numpy as np
 import torch
 import os
 import yaml
-import csv
-import matplotlib.pyplot as plt
-
+from utils import save_statistics, save_agent_data, save_agent_network
 
 class MAPPOTrainer:
     EPISODE_LENGTH = 500
     MAX_EPS = 4000
-    ROLLOUT = 2
+    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -26,7 +24,7 @@ class MAPPOTrainer:
         self.partial_rewards = 0
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
-        self.best_reward = -2000
+        self.best_reward = -7000
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
@@ -53,7 +51,8 @@ class MAPPOTrainer:
             env.observation_space('blue_agent_0').shape[0],
             5, lr, eps, fc
         )
-        return centralized_critic
+        message_type = params.get('message_type', 'simple')
+        return centralized_critic, message_type
 
     def initialize_environment(self):
         sg = EnterpriseScenarioGenerator(
@@ -66,7 +65,9 @@ class MAPPOTrainer:
         env = BlueFlatWrapper(env=cyborg)
         env.reset()
         self.env = env
-        self.centralized_critic = self.initialize_critic(env)
+        self.centralized_critic, self.message_type = self.initialize_critic(env)
+        self.checkpoint_critic = os.path.join(f'saved_networks\mappo\{self.message_type}', f'critic_ppo_central')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks\mappo\{self.message_type}', f'critic_ppo_central')
         self.agents = {
             f"blue_agent_{agent}": PPO(
                 env.observation_space(f'blue_agent_{agent}').shape[0],
@@ -81,9 +82,11 @@ class MAPPOTrainer:
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
+            self.centralized_critic.load_network(self.checkpoint_critic)
         if self.load_last_network:
             for _, agent in self.agents.items():
                 agent.load_last_epoch()
+            self.centralized_critic.load_last_epoch(self.last_checkpoint_file_critic)
 
     def run(self):
         self.initialize_environment()
@@ -137,8 +140,9 @@ class MAPPOTrainer:
                 if avg_rwd > self.best_reward:
                     self.best_reward = avg_rwd
                     for agent_name, agent in self.agents.items():
-                        agent.save_network()
-                        self.centralized_critic.save_network()
+                        save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.checkpoint_file_actor)
+                    save_agent_network(self.centralized_critic, self.centralized_critic.critic_optimizer,self.checkpoint_critic)
+                    self.centralized_critic.save_network()
                 self.partial_rewards = 0
             # Save rewards, state values, and termination flags (divided per episode)
             for agent_name, agent in self.agents.items():
@@ -147,21 +151,9 @@ class MAPPOTrainer:
                 if (i + 1) % self.ROLLOUT == 0:
                     print(f"Policy update for {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
-        self.save_statistics()
-
-    def save_statistics(self):
-        rewards_mean = mean(self.total_rewards)
-        rewards_stdev = stdev(self.total_rewards)
-        total_rewards_transposed = [[elem] for elem in self.average_rewards]
-        with open('reward_history.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Rewards'])  # Write header
-            writer.writerows(total_rewards_transposed)
-        plt.plot(self.total_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.title('Reward per Episode')
-        plt.grid(True)
-        plt.show()
-        print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
+        save_agent_data(self.agents)
+        for agent_name, agent in self.agents.items():
+            save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.last_checkpoint_file_actor)
+        save_agent_network(self.centralized_critic, self.centralized_critic.critic_optimizer,self.last_checkpoint_file_critic)
+        save_statistics(self.total_rewards, self.average_rewards)
 

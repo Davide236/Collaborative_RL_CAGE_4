@@ -24,26 +24,12 @@ class CriticNetwork(nn.Module):
         state_value = self.critic(state) # Compute the state value
         return state_value # Detach extra elements
     
-    def save_last_epoch(self):
-        print('Saving Networks.....')
-        torch.save(self.critic.state_dict(),self.last_checkpoint_file_critic)
-    
     # Load the last saved networks
-    def load_last_epoch(self):
+    def load_last_epoch(self, checkpoint):
         print('Loading Last saved Networks......')
-        self.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
+        self.critic.load_state_dict(torch.load(checkpoint))
 
-    # Save both actor and critic networks of the agent
-    def save_network(self):
-        print('Saving Networks.....')
-        torch.save(self.critic.state_dict(),self.checkpoint_file_critic)
-    
     # Load both actor and critic network of the agent
-    def load_network(self):
+    def load_network(self, checkpoint):
         print('Loading Networks......')
-        self.critic.load_state_dict(torch.load(self.checkpoint_file_critic))
-
-    # Initialize checkpoint to save the different agents
-    def init_checkpoint(self):
-        self.checkpoint_file_critic = os.path.join('saved_networks', f'critic_ppo_central')
-        self.last_checkpoint_file_critic = os.path.join('last_networks', f'critic_ppo_central')
+        self.critic.load_state_dict(torch.load(checkpoint))

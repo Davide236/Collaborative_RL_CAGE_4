@@ -55,7 +55,7 @@ class PPO:
         self.entropy = []
         self.critic_loss = []
         self.actor_loss = []
-        self.save_path = f'saved_statistics\data_agent_{number}.csv'
+        self.save_path = f'saved_statistics/r_mappo/{self.message_type}/data_agent_{number}.csv'
     
     def save_last_epoch(self):
         print('Saving Networks and Optimizers.....')
@@ -84,8 +84,8 @@ class PPO:
         self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join('saved_networks', f'r_actor_mappo_{number}')
-        self.last_checkpoint_file_actor = os.path.join('last_networks', f'r_actor_mappo_{number}')
+        self.checkpoint_file_actor = os.path.join(f'saved_networks/r_mappo/{self.message_type}', f'r_actor_mappo_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks/r_mappo/{self.message_type}', f'r_actor_mappo_{number}')
 
     # Save the statistics to a csv file
     def save_statistics_csv(self):

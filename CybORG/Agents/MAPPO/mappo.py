@@ -54,14 +54,8 @@ class PPO:
         self.entropy = []
         self.critic_loss = []
         self.actor_loss = []
-        self.save_path = f'saved_statistics\data_agent_{number}.csv'
+        self.save_path = f'saved_statistics\mappo\{self.message_type}\data_agent_{number}.csv'
     
-    def save_last_epoch(self):
-        print('Saving Networks and Optimizers.....')
-        torch.save({
-            'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor.actor_optimizer.state_dict(),
-        }, self.last_checkpoint_file_actor)
     
     def load_last_epoch(self):
         print('Loading Last saved Networks and Optimizers......')
@@ -69,12 +63,6 @@ class PPO:
         self.actor.load_state_dict(checkpoint['actor_state_dict'])
         self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
-    def save_network(self):
-        print('Saving Networks and Optimizers.....')
-        torch.save({
-            'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor.actor_optimizer.state_dict(),
-        }, self.checkpoint_file_actor)
     
     def load_network(self):
         print('Loading Networks and Optimizers......')
@@ -83,16 +71,9 @@ class PPO:
         self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
 
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_mappo_{number}')
-        self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_mappo_{number}')
+        self.checkpoint_file_actor = os.path.join(f'saved_networks\mappo\{self.message_type}', f'actor_mappo_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks\mappo\{self.message_type}', f'actor_mappo_{number}')
 
-    # Save the statistics to a csv file
-    def save_statistics_csv(self):
-        data = zip(self.entropy, self.critic_loss, self.actor_loss)
-        with open(self.save_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Entropy', 'Critic Loss', 'Actor Loss'])  # Write header
-            writer.writerows(data)
 
     # Initialize hyperparameters
     def init_hyperparameters(self, episodes):
@@ -111,7 +92,7 @@ class PPO:
         self.minibatch_number = int(params.get('minibatch_number', 1))
         self.fc = int(params.get('fc', 256))
         self.target_kl = float(params.get('target_kl', 0.02))
-        self.message_type = params.get('message_type', 'action')
+        self.message_type = params.get('message_type', 'simple')
         self.max_episodes = episodes
 
 

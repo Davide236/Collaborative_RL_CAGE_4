@@ -20,7 +20,7 @@ class PPO:
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps, self.fc)
         self.use_messages = messages
         self.agent_number = number
-        self.message_handler = MessageHandler(message_type='8_bits', number=self.agent_number)
+        self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
     
     
     def get_action(self, state):
@@ -51,12 +51,7 @@ class PPO:
         self.entropy = []
         self.critic_loss = []
         self.actor_loss = []
-        self.save_path = f'saved_statistics\data_agent_{number}.csv'
-    
-    def save_last_epoch(self):
-        print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.last_checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.last_checkpoint_file_critic)
+        self.save_path = f'saved_statistics\ippo\{self.message_type}\data_agent_{number}.csv'
     
     # Load the last saved networks
     def load_last_epoch(self):
@@ -64,12 +59,6 @@ class PPO:
         self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
         self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
 
-    # Save both actor and critic networks of the agent
-    def save_network(self):
-        print('Saving Networks.....')
-        torch.save(self.policy.actor.state_dict(),self.checkpoint_file_actor)
-        torch.save(self.policy.critic.state_dict(),self.checkpoint_file_critic)
-    
     # Load both actor and critic network of the agent
     def load_network(self):
         print('Loading Networks......')
@@ -78,18 +67,10 @@ class PPO:
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join('saved_networks', f'actor_ppo_{number}')
-        self.checkpoint_file_critic = os.path.join('saved_networks', f'critic_ppo_{number}')
-        self.last_checkpoint_file_actor = os.path.join('last_networks', f'actor_ppo_{number}')
-        self.last_checkpoint_file_critic = os.path.join('last_networks', f'critic_ppo_{number}')
-
-    # Save the statistics to a csv file
-    def save_statistics_csv(self):
-        data = zip(self.entropy, self.critic_loss, self.actor_loss)
-        with open(self.save_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Entropy', 'Critic Loss', 'Actor Loss'])  # Write header
-            writer.writerows(data)
+        self.checkpoint_file_actor = os.path.join(f'saved_networks\ippo\{self.message_type}', f'actor_ppo_{number}')
+        self.checkpoint_file_critic = os.path.join(f'saved_networks\ippo\{self.message_type}', f'critic_ppo_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks\ippo\{self.message_type}', f'actor_ppo_{number}')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks\ippo\{self.message_type}', f'critic_ppo_{number}')
 
     # Initialize hyperparameters
     def init_hyperparameters(self, episodes):
@@ -109,6 +90,7 @@ class PPO:
         self.minibatch_number = int(params.get('minibatch_number', 1))
         self.fc = int(params.get('fc', 256))
         self.target_kl = float(params.get('target_kl', 0.02))
+        self.message_type = params.get('message_type', 'simple')
 
      
     
