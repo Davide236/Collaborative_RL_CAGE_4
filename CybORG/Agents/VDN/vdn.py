@@ -1,8 +1,10 @@
 import torch.nn.functional as F
 import torch
 import numpy as np
-from vdn_net import QNet
-from buffer import ReplayBuffer
+# from vdn_net import QNet
+# from buffer import ReplayBuffer
+from CybORG.Agents.VDN.vdn_net import QNet
+from CybORG.Agents.VDN.buffer import ReplayBuffer
 import yaml
 import os
 
@@ -11,7 +13,7 @@ class VDN():
     def __init__(self, n_agents, n_actions, actor_dims):
         # TODO: Init Hyperparams method
         self.init_hyperparams()
-        self.memory = ReplayBuffer(buffer_limit=100000, n_agents=n_agents, obs_space=18)
+        self.memory = ReplayBuffer(buffer_limit=100000, n_agents=n_agents, obs_space=actor_dims[0])
 
         self.n_agents = n_agents
         self.n_actions = n_actions

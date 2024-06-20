@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class QNet(nn.Module):
-    def __init__(self, observation_space, action_space,fc, hidden_size, recurrent=False):
+    def __init__(self, observation_space, action_space, fc, recurrent=False):
         super(QNet, self).__init__()
         self.num_agents = len(observation_space)
         self.recurrent = recurrent

@@ -5,6 +5,7 @@ from trainers.mappo_trainer import MAPPOTrainer
 from trainers.qmix_trainer import QMIXTrainer
 from trainers.r_ippo_trainer import RecurrentIPPOTrainer
 from trainers.r_mappo_trainer import RecurrentMAPPOTrainer
+from trainers.vdn_trainer import VDNTrainer
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Process some input parameters.")
@@ -57,7 +58,8 @@ def main():
         trainer = QMIXTrainer(args)
         trainer.run()
     elif method == 'VDN':
-        print('Not implemented yet')
+        trainer = VDNTrainer(args)
+        trainer.run()
     else:
         trainer = PPOTrainer(args)
         trainer.run()
