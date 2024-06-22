@@ -20,8 +20,8 @@ class VDN():
         self.epsilon = 1
         self.training_steps = 0
         self.hidden = None
-        self.q_network = QNet(actor_dims, n_actions,self.fc, recurrent=True)
-        self.target_network = QNet(actor_dims, n_actions,self.fc, recurrent=True)
+        self.q_network = QNet(actor_dims, n_actions,self.fc, recurrent=False)
+        self.target_network = QNet(actor_dims, n_actions,self.fc, recurrent=False)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=self.lr)

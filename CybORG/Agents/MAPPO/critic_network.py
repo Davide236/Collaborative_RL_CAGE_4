@@ -8,7 +8,6 @@ class CriticNetwork(nn.Module):
         super(CriticNetwork, self).__init__()
         # Width of the network
         self.fc = fc
-        self.init_checkpoint()
         self.state_dim = large_state_dim + (small_state_dim)*(n_agents-1)
         # Initialize critc network
         self.critic = nn.Sequential(

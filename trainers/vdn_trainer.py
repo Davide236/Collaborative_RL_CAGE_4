@@ -94,7 +94,7 @@ class VDNTrainer:
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (eps + 1)}")
             # Add to partial rewards
             self.total_rewards.append(sum(r))
-            if self.agents.memory.size() > 2000:
+            if self.agents.memory.size() > 10000:
                 self.agents.train()
             if eps % self.agents.update_interval == 0:
                 self.agents.copy_network()

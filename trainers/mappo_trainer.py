@@ -142,7 +142,6 @@ class MAPPOTrainer:
                     for agent_name, agent in self.agents.items():
                         save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.checkpoint_file_actor)
                     save_agent_network(self.centralized_critic, self.centralized_critic.critic_optimizer,self.checkpoint_critic)
-                    self.centralized_critic.save_network()
                 self.partial_rewards = 0
             # Save rewards, state values, and termination flags (divided per episode)
             for agent_name, agent in self.agents.items():
