@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import yaml
 import os
-from utils import save_statistics, save_agent_data, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 
 
@@ -54,13 +54,6 @@ class RecurrentMAPPOTrainer:
         message_type = params.get('message_type', 'simple')
         return centralized_critic, critic_optimizer, message_type
 
-    def save_last_epoch(self, critic, checkpoint):
-        print('Saving Networks.....')
-        torch.save(critic.state_dict(), checkpoint)
-
-    def save_network(self, critic, checkpoint):
-        print('Saving Networks.....')
-        torch.save(critic.state_dict(), checkpoint)
 
     def init_checkpoint(self):
         checkpoint_file_critic = os.path.join('saved_networks', f'r_critic_mappoppo_central')
@@ -90,9 +83,13 @@ class RecurrentMAPPOTrainer:
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
+            self.centralized_critic.load_state_dict(torch.load(self.best_critic['network_state_dict']))
+            self.critic_optimizer.load_state_dict(torch.load(self.best_critic['optimizer_state_dict']))
         if self.load_last_network:
             for _, agent in self.agents.items():
                 agent.load_last_epoch()
+            self.centralized_critic.load_state_dict(torch.load(self.last_critic['network_state_dict']))
+            self.critic_optimizer.load_state_dict(torch.load(self.last_critic['optimizer_state_dict']))
 
     def run(self):
         self.initialize_environment()
@@ -161,7 +158,7 @@ class RecurrentMAPPOTrainer:
                 if (i + 1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
-        save_agent_data(self.agents)
+        save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)
         save_agent_network(self.centralized_critic, self.critic_optimizer,self.last_checkpoint_file_critic)

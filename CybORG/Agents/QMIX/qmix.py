@@ -13,6 +13,7 @@ class QMix():
     def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes):
         # TODO: Init Hyperparams method
         self.init_hyperparams(episode_length, total_episodes)
+        self.init_check_memory()
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.obs_space = obs_space
@@ -27,6 +28,39 @@ class QMix():
         
         #self.device = torch.device('cpu')
     
+    def init_check_memory(self):
+        self.loss = []
+        self.save_path = f'saved_statistics\qmix\{self.message_type}\data_agent_qmix.csv'
+
+    def load_last_epoch(self):
+        print('Loading Last saved Networks......')
+        for number, network in enumerate(self.agent_networks):
+            checkpoint = os.path.join(f'last_networks/qmix/{self.message_type}', f'qmix_{number}')
+            checkpoint = torch.load(checkpoint)
+            network.load_state_dict(torch.load(checkpoint['network_state_dict']))
+            self.agent_optimizers[number].load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
+            self.target_agent_networks[number].load_state_dict(network.state_dict())
+        checkpoint = os.path.join(f'last_networks/qmix/{self.message_type}', f'mixer')
+        checkpoint = torch.load(checkpoint)
+        self.qmix_net_eval.load_state_dict(torch.load(checkpoint['network_state_dict']))
+        self.mixing_optimizer.load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
+        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
+
+    # Load both actor and critic network of the agent
+    def load_network(self):
+        print('Loading Networks......')
+        for number, network in enumerate(self.agent_networks):
+            checkpoint = os.path.join(f'saved_networks/qmix/{self.message_type}', f'qmix_{number}')
+            checkpoint = torch.load(checkpoint)
+            network.load_state_dict(checkpoint['network_state_dict'])
+            self.target_agent_networks[number].load_state_dict(network.state_dict())
+            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])
+        checkpoint = os.path.join(f'saved_networks/qmix/{self.message_type}', f'mixer')
+        checkpoint = torch.load(checkpoint)
+        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])
+        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
+
     def init_hyperparams(self, ep_length, total_episodes):
         # TODO: Change this
         self.episode_length = ep_length
@@ -40,6 +74,7 @@ class QMix():
         self.end_epsilon = float(params.get('end_epsilon', 0.01))
         self.fc = int(params.get('fc', 256))
         self.update_interval = int(params.get('update_interval', 10))
+        self.message_type = params.get('message_type', 'simple')
         self.training_steps = 0
         self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
         # TODO: test with this
@@ -112,7 +147,6 @@ class QMix():
         self.mixing_optimizer.zero_grad()
         for opt in self.agent_optimizers:
             opt.zero_grad()
-        #print(f'Rewards: {rewards}')
         loss.backward()
         for agent in self.agent_networks:
             torch.nn.utils.clip_grad_norm_(agent.parameters(), self.grad_norm_clip)
@@ -122,6 +156,7 @@ class QMix():
             opt.step()
         if count % self.update_interval:
             self.update_target_networks()
+        self.loss.append(loss.item())
         
         
         

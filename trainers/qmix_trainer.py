@@ -5,16 +5,18 @@ from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.QMIX.qmix import QMix
 from CybORG.Agents.QMIX.buffer import ReplayBuffer
 from statistics import mean, stdev
-import csv
+import os
 import matplotlib.pyplot as plt
+from utils import save_statistics, save_agent_data_mixer, save_agent_network
+
 
 
 class QMIXTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 1000
+    MAX_EPS = 5
     ROLLOUT = 5
 
-    def __init__(self):
+    def __init__(self, args):
         self.env = None
         self.agents = None
         self.memory = None
@@ -23,6 +25,10 @@ class QMIXTrainer:
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
         self.training_steps = 0
+        self.best_reward = -7000
+        self.load_last_network = args.Load_last
+        self.load_best_network = args.Load_best
+        self.messages = args.Messages
 
     def setup_agents(self, env):
         n_agents = 5
@@ -70,6 +76,10 @@ class QMIXTrainer:
         self.env = env
         self.agents, self.memory = self.setup_agents(env)
         print(f'Using agents {self.agents}')
+        if self.load_best_network:
+            self.agents.load_network()
+        if self.load_last_network:
+            self.agents.load_last_epoch()
 
     def run(self):
         self.initialize_environment()
@@ -103,6 +113,13 @@ class QMIXTrainer:
                 r.append(mean(reward.values()))  # Add rewards
             self.partial_rewards += sum(r)
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (eps + 1)}")
+            if sum(r) > self.best_reward:
+                self.best_reward = sum(r)
+                for number, network in enumerate(self.agents.agent_networks):
+                    save_path = os.path.join(f'saved_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
+                    save_agent_network(network, self.agents.agent_optimizers[number], save_path)
+                save_path = os.path.join(f'saved_networks\qmix\{self.agents.message_type}', f'mixer')
+                save_agent_network(self.agents.qmix_net_eval, self.agents.mixing_optimizer, save_path)
             # Add to partial rewards
             self.total_rewards.append(sum(r))
             self.memory.append_episodic()
@@ -111,20 +128,10 @@ class QMIXTrainer:
                 sample = self.memory.sample(self.ROLLOUT)
                 self.training_steps += 1
                 self.agents.train(sample, self.training_steps)
-        self.save_statistics()
-
-    def save_statistics(self):
-        rewards_mean = mean(self.total_rewards)
-        rewards_stdev = stdev(self.total_rewards)
-        total_rewards_transposed = [[elem] for elem in self.average_rewards]
-        with open('qmix_reward_history.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Rewards'])  # Write header
-            writer.writerows(total_rewards_transposed)
-        plt.plot(self.total_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.title('Reward per Episode')
-        plt.grid(True)
-        plt.show()
-        print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
+        for number, network in enumerate(self.agents.agent_networks):
+            save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
+            save_agent_network(network, self.agents.agent_optimizers[number], save_path)
+        save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'mixer')
+        save_agent_network(self.agents.qmix_net_eval, self.agents.mixing_optimizer, save_path)
+        save_statistics(self.total_rewards, self.total_rewards)
+        save_agent_data_mixer(self.agents)

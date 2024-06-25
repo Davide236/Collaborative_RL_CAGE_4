@@ -26,9 +26,12 @@ class CriticNetwork(nn.Module):
     # Load the last saved networks
     def load_last_epoch(self, checkpoint):
         print('Loading Last saved Networks......')
-        self.critic.load_state_dict(torch.load(checkpoint))
+        self.critic.load_state_dict(torch.load(checkpoint['network_state_dict']))
+        self.critic_optimizer.load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
 
     # Load both actor and critic network of the agent
     def load_network(self, checkpoint):
         print('Loading Networks......')
-        self.critic.load_state_dict(torch.load(checkpoint))
+        self.critic.load_state_dict(torch.load(checkpoint['network_state_dict']))
+        self.critic_optimizer.load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
+

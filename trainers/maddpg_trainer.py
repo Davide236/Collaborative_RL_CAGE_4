@@ -8,6 +8,7 @@ from CybORG.Agents.MADDPG.replay_buffer import MultiAgentReplayBuffer
 
 import csv
 import matplotlib.pyplot as plt
+from utils import save_statistics, save_agent_data_maddpg, save_agent_network
 
 
 class MADDPGTrainer:
@@ -25,6 +26,7 @@ class MADDPGTrainer:
         self.partial_rewards = 0
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
+        self.best_reward = -7000
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
@@ -69,6 +71,12 @@ class MADDPGTrainer:
         self.env = env
         self.agents, self.memory = self.setup_agents()
         print(f'Using agents {self.agents}')
+        if self.load_best_network:
+            for agent in self.agents.agents:
+                agent.load_network()
+        if self.load_last_network:
+            for agent in self.agents.agents:
+                agent.load_last_epoch()
 
     def run(self):
         self.initialize_environment()
@@ -105,25 +113,17 @@ class MADDPGTrainer:
             self.partial_rewards += sum(r)
             self.average_rewards.append(sum(r))
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (eps + 1)}")
+            if (sum(r) > self.best_reward):
+                for agent in self.agents.agents:
+                    save_agent_network(agent.actor, agent.actor.optimizer, agent.checkpoint_file_actor)
+                    save_agent_network(agent.critic, agent.critic.optimizer, agent.checkpoint_file_critic)
             # Add to partial rewards  
             self.total_rewards.append(sum(r))
             self.agents.learn(self.memory)
-        self.save_statistics()
-
-    def save_statistics(self):
-        rewards_mean = mean(self.total_rewards)
-        rewards_stdev = stdev(self.total_rewards)
-        total_rewards_transposed = [[elem] for elem in self.average_rewards]
-        with open('maddpg_reward_history.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Rewards'])  # Write header
-            writer.writerows(total_rewards_transposed)
-        plt.plot(self.total_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.title('Reward per Episode')
-        plt.grid(True)
-        plt.show()
-        print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
+        for agent in self.agents.agents:
+            save_agent_network(agent.actor, agent.actor.optimizer, agent.last_checkpoint_file_actor)
+            save_agent_network(agent.critic, agent.critic.optimizer, agent.last_checkpoint_file_critic)
+        save_agent_data_maddpg(self.agents)
+        save_statistics(self.total_rewards, self.average_rewards)
 
 

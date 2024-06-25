@@ -10,6 +10,8 @@ class Agent:
         self.init_hyperparameters(n_actions, agent_idx, n_agents)
         self.agent_name = agent_idx
         self.gradient_estimator = gradient_estimator
+        self.init_check_memory()
+        self.init_checkpoint(self.agent_name)
         # For each agent Initialize and Actor, Critic and Two target networks
         self.actor = ActorNetwork(self.lr, actor_dims, self.fc1, self.fc2, n_actions)
         self.critic = CriticNetwork(self.lr,critic_dims, self.fc1, self.fc2, n_agents, total_actions)
@@ -18,6 +20,41 @@ class Agent:
         
         self.update_network_parameters(tau=1)
     
+    # Initialize arrays to save important information for the training
+    def init_check_memory(self):
+        self.actor_loss = []
+        self.critic_loss = []
+        self.save_path = f'saved_statistics\maddpg\{self.message_type}\data_agent_{self.agent_name}.csv'
+
+    
+    # Load the last saved networks
+    def load_last_epoch(self):
+        print('Loading Last saved Networks......')
+        self.actor.load_state_dict(T.load(self.last_checkpoint_file_actor['network_state_dict']))
+        self.critic.load_state_dict(T.load(self.last_checkpoint_file_critic['network_state_dict']))
+        self.actor.optimizer.load_state_dict(T.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
+        self.critic.optimizer.load_state_dict(T.load(self.last_checkpoint_file_critic['optimizer_state_dict']))
+        self.target_actor.load_state_dict(T.load(self.last_checkpoint_file_actor))
+        self.target_critic.load_state_dict(T.load(self.last_checkpoint_file_critic))
+
+    # Load both actor and critic network of the agent
+    def load_network(self):
+        print('Loading Networks......')
+        self.actor.load_state_dict(T.load(self.checkpoint_file_actor['network_state_dict']))
+        self.critic.load_state_dict(T.load(self.checkpoint_file_critic['network_state_dict']))
+        self.actor.optimizer.load_state_dict(T.load(self.checkpoint_file_actor['optimizer_state_dict']))
+        self.critic.optimizer.load_state_dict(T.load(self.checkpoint_file_critic['optimizer_state_dict']))
+        self.target_actor.load_state_dict(T.load(self.checkpoint_file_actor))
+        self.target_critic.load_state_dict(T.load(self.checkpoint_file_critic))
+
+    # Initialize checkpoint to save the different agents
+    def init_checkpoint(self, number):
+        self.checkpoint_file_actor = os.path.join(f'saved_networks\maddpg\{self.message_type}', f'actor_maddpg_{number}')
+        self.checkpoint_file_critic = os.path.join(f'saved_networks\maddpg\{self.message_type}', f'critic_maddpg_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks\maddpg\{self.message_type}', f'actor_maddpg_{number}')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks\maddpg\{self.message_type}', f'critic_maddpg_{number}')
+
+
     def init_hyperparameters(self, n_actions, agent_idx, n_agents):
         config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
@@ -29,6 +66,7 @@ class Agent:
         self.tau = float(params.get('tau',0.01))
         self.policy_regulariser = float(params.get('policy_regulariser',0.001))
         self.max_grad_norm = float(params.get('max_grad_norm',0.5))
+        self.message_type = params.get('message_type', 'simple')
         self.n_actions = n_actions
         self.agent_idx = agent_idx
         self.n_agents = n_agents
@@ -81,6 +119,7 @@ class Agent:
         loss.backward()
         T.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
         self.critic.optimizer.step()
+        self.critic_loss.append(loss.item())
 
     def learn_actor(self, obs, agent_obs, sampled_actions):
         policy_outputs = self.actor(agent_obs)
@@ -97,3 +136,4 @@ class Agent:
         loss.backward()
         T.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actor.optimizer.step() 
+        self.actor_loss.append(loss.item())

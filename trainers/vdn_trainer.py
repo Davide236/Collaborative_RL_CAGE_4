@@ -4,12 +4,13 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.VDN.vdn import VDN
 from statistics import mean, stdev
+from utils import save_statistics, save_agent_data_mixer, save_agent_network
 
 
 class VDNTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 1000
-    ROLLOUT = 5
+    MAX_EPS = 2000
+    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -20,6 +21,10 @@ class VDNTrainer:
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
         self.training_steps = 0
+        self.best_reward = -7000
+        self.load_last_network = args.Load_last
+        self.load_best_network = args.Load_best
+        self.messages = args.Messages
 
     def setup_agents(self, env):
         n_agents = 5
@@ -57,6 +62,10 @@ class VDNTrainer:
         self.env = env
         self.agents = self.setup_agents(env)
         print(f'Using agents {self.agents}')
+        if self.load_best_network:
+            self.agents.load_network()
+        if self.load_last_network:
+            self.agents.load_last_epoch()
 
     def run(self):
         self.initialize_environment()
@@ -92,9 +101,15 @@ class VDNTrainer:
                 r.append(mean(reward.values()))  # Add rewards
             self.partial_rewards += sum(r)
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (eps + 1)}")
+            if sum(r) > self.best_reward:
+                self.best_reward = sum(r)
+                save_agent_network(self.agents.q_network, self.agents.optimizer, self.agents.save_best_path)
             # Add to partial rewards
             self.total_rewards.append(sum(r))
             if self.agents.memory.size() > 10000:
                 self.agents.train()
             if eps % self.agents.update_interval == 0:
                 self.agents.copy_network()
+        save_agent_network(self.agents.q_network, self.agents.optimizer, self.agents.save_last_path)
+        save_statistics(self.total_rewards, self.total_rewards)
+        save_agent_data_mixer(self.agents)

@@ -5,12 +5,12 @@ from CybORG.Agents.IPPO.ippo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 
-from utils import save_statistics, save_agent_data, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 
 class PPOTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 4000
+    MAX_EPS = 11
     ROLLOUT = 10
 
     def __init__(self, args):
@@ -107,7 +107,7 @@ class PPOTrainer:
                 if (i+1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count) 
-        save_agent_data(self.agents)
+        save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.policy.critic, agent.policy.critic_optimizer, agent.last_checkpoint_file_critic)

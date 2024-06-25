@@ -57,31 +57,17 @@ class PPO:
         self.actor_loss = []
         self.save_path = f'saved_statistics/r_mappo/{self.message_type}/data_agent_{number}.csv'
     
-    def save_last_epoch(self):
-        print('Saving Networks and Optimizers.....')
-        torch.save({
-            'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
-        }, self.last_checkpoint_file_actor)
-    
     def load_last_epoch(self):
         print('Loading Last saved Networks and Optimizers......')
         checkpoint = torch.load(self.last_checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor.load_state_dict(checkpoint['network_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-    def save_network(self):
-        print('Saving Networks and Optimizers.....')
-        torch.save({
-            'actor_state_dict': self.actor.state_dict(),
-            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
-        }, self.checkpoint_file_actor)
-    
     def load_network(self):
         print('Loading Networks and Optimizers......')
         checkpoint = torch.load(self.checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor.load_state_dict(checkpoint['network_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     def init_checkpoint(self, number):
         self.checkpoint_file_actor = os.path.join(f'saved_networks/r_mappo/{self.message_type}', f'r_actor_mappo_{number}')

@@ -60,15 +60,15 @@ class PPO:
     def load_last_epoch(self):
         print('Loading Last saved Networks and Optimizers......')
         checkpoint = torch.load(self.last_checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor.load_state_dict(checkpoint['network_state_dict'])
+        self.actor.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     
     def load_network(self):
         print('Loading Networks and Optimizers......')
         checkpoint = torch.load(self.checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.actor.load_state_dict(checkpoint['network_state_dict'])
+        self.actor.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     def init_checkpoint(self, number):
         self.checkpoint_file_actor = os.path.join(f'saved_networks\mappo\{self.message_type}', f'actor_mappo_{number}')

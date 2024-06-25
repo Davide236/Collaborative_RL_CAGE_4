@@ -14,7 +14,7 @@ class VDN():
         # TODO: Init Hyperparams method
         self.init_hyperparams()
         self.memory = ReplayBuffer(buffer_limit=100000, n_agents=n_agents, obs_space=actor_dims[0])
-
+        self.init_check_memory()
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.epsilon = 1
@@ -26,7 +26,28 @@ class VDN():
 
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=self.lr)
         
+    def init_check_memory(self):
+        self.loss = []
+        self.save_path = f'saved_statistics/vdn/{self.message_type}\data_agent_vdn.csv'
+        self.save_best_path = os.path.join(f'saved_networks/vdn/{self.message_type}', f'vdn_net')
+        self.save_last_path = os.path.join(f'last_networks/vdn/{self.message_type}', f'vdn_net')
+
+    def load_network(self):
+        print('Loading best network....')
+        checkpoint = os.path.join(f'saved_networks/vdn/{self.message_type}', f'vdn_net')
+        checkpoint = torch.load(checkpoint)
+        self.q_network.load_state_dict(checkpoint['network_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict']) 
+        self.target_network.load_state_dict(self.q_network.state_dict())
     
+    def load_last_epoch(self):
+        print('Loading network....')
+        checkpoint = os.path.join(f'last_networks/vdn/{self.message_type}', f'vdn_net')
+        checkpoint = torch.load(checkpoint)
+        self.q_network.load_state_dict(checkpoint['network_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict']) 
+        self.target_network.load_state_dict(self.q_network.state_dict())
+
     def init_hyperparams(self):
         # TODO: Change this
         #self.episode_length = ep_length
@@ -43,6 +64,7 @@ class VDN():
         self.chunk_size = int(params.get('chunk_size', 10))
         self.training_epochs = int(params.get('training_epochs', 10))
         self.batch_size = int(params.get('batch_size', 50))
+        self.message_type = params.get('message_type', 'simple')
     
 
     def get_actions(self, state):

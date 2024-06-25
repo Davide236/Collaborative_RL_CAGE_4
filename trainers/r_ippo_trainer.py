@@ -4,7 +4,7 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.R_IPPO.ppo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
-from utils import save_statistics, save_agent_data, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 
 
@@ -114,7 +114,7 @@ class RecurrentIPPOTrainer:
                 if (i + 1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
-        save_agent_data(self.agents)
+        save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.critic, agent.critic_optimizer, agent.last_checkpoint_file_critic)
