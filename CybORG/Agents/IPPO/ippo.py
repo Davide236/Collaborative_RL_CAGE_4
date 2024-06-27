@@ -212,8 +212,7 @@ class PPO:
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
-        A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
-        rtgs = (rtgs - rtgs.mean())/(rtgs.std() + 1e-8)
+        #A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
         # Reduce the learning rate
         self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs
@@ -230,8 +229,6 @@ class PPO:
                 mini_advantage = A_k[idx]
                 mini_rtgs = rtgs[idx]
                 state_values, curr_log_probs, entropy = self.evaluate(mini_obs, mini_acts)
-                # Normalize state values
-                state_values = (state_values - state_values.mean())/(state_values.std() + 1e-8)
                 # Compute policy loss with the formula
                 entropy_loss = entropy.mean()
                 logrations = curr_log_probs - mini_log_prob
