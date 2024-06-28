@@ -28,7 +28,7 @@ class VDN():
         
     def init_check_memory(self):
         self.loss = []
-        self.save_path = f'saved_statistics/vdn/{self.message_type}\data_agent_vdn.csv'
+        self.save_path = f'saved_statistics/vdn/{self.message_type}/data_agent_vdn.csv'
         self.save_best_path = os.path.join(f'saved_networks/vdn/{self.message_type}', f'vdn_net')
         self.save_last_path = os.path.join(f'last_networks/vdn/{self.message_type}', f'vdn_net')
 
@@ -103,6 +103,7 @@ class VDN():
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.grad_norm_clip, norm_type=2)
         self.optimizer.step()
+        self.loss.append(loss.item())
 
     def init_hidden_state(self):
         self.hidden = self.q_network.init_hidden()

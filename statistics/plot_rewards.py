@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 # Load the CSV file
 data = pd.read_csv('../rewards.csv', header=None)
-
 # Calculate the average value and standard deviation at each timestep
 averages = []
 std_deviations = []
