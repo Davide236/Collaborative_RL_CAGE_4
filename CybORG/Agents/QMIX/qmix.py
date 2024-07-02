@@ -30,7 +30,7 @@ class QMix():
     
     def init_check_memory(self):
         self.loss = []
-        self.save_path = f'saved_statistics\qmix\{self.message_type}\data_agent_qmix.csv'
+        self.save_path = f'saved_statistics/qmix/{self.message_type}/data_agent_qmix.csv'
 
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
@@ -173,9 +173,15 @@ class QMix():
             epsilon = self.epsilon_annealing()
             random_value = random.random()
             # With probability eps, do a random action
-            if random_value < epsilon:
-                action = random.randint(0, q_value.shape[0]-1)
+            if i == 4:
+                if random_value < epsilon:
+                    action = random.randint(0, q_value.shape[0]-1)
+                else:
+                    action = torch.argmax(q_value).item()
             else:
-                action = torch.argmax(q_value).item()
+                if random_value < epsilon:
+                    action = random.randint(0, min(q_value.shape[0], 85) - 1)
+                else:
+                    action = torch.argmax(q_value[:85]).item()
             actions.append(action)
         return actions

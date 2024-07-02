@@ -10,4 +10,4 @@ max_grad_norm: 0.5
 minibatch_number: 1
 target_kl: 0.02
 fc: 256
-message_type: '8_bits' # 'action', '2_bits'
+#message_type: '8_bits' # 'action', '2_bits'

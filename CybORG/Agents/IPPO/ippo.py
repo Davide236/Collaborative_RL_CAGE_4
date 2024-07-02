@@ -56,10 +56,13 @@ class PPO:
     # Load the last saved networks
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
-        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor['network_state_dict']))
-        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic['network_state_dict']))
-        self.policy.actor_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
-        self.policy.critic_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_critic['optimizer_state_dict']))
+        # self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor['network_state_dict']))
+        # self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic['network_state_dict']))
+        # self.policy.actor_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
+        # self.policy.critic_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_critic['optimizer_state_dict']))
+        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
+        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
+
 
 
     # Load both actor and critic network of the agent
@@ -72,10 +75,10 @@ class PPO:
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join(f'saved_networks\ippo\{self.message_type}', f'actor_ppo_{number}')
-        self.checkpoint_file_critic = os.path.join(f'saved_networks\ippo\{self.message_type}', f'critic_ppo_{number}')
-        self.last_checkpoint_file_actor = os.path.join(f'last_networks\ippo\{self.message_type}', f'actor_ppo_{number}')
-        self.last_checkpoint_file_critic = os.path.join(f'last_networks\ippo\{self.message_type}', f'critic_ppo_{number}')
+        self.checkpoint_file_actor = os.path.join(f'saved_networks/ippo/{self.message_type}', f'actor_ppo_{number}')
+        self.checkpoint_file_critic = os.path.join(f'saved_networks/ippo/{self.message_type}', f'critic_ppo_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks/ippo/{self.message_type}', f'actor_ppo_{number}')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks/ippo/{self.message_type}', f'critic_ppo_{number}')
 
     # Initialize hyperparameters
     def init_hyperparameters(self, episodes):

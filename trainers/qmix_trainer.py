@@ -13,7 +13,7 @@ from utils import save_statistics, save_agent_data_mixer, save_agent_network
 
 class QMIXTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 5
+    MAX_EPS = 3000
     ROLLOUT = 5
 
     def __init__(self, args):
