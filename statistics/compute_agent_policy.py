@@ -1,6 +1,6 @@
 import pandas as pd
 
-agent = 0
+agent = 4
 # Read CSV file into a pandas DataFrame
 df = pd.read_csv(f'../blue_agent_{agent}.csv', header=None, names=['Net', 'proc', 'Acts'])
 

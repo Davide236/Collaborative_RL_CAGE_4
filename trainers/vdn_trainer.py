@@ -9,7 +9,7 @@ from utils import save_statistics, save_agent_data_mixer, save_agent_network
 
 class VDNTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 3000
+    MAX_EPS = 1500
     ROLLOUT = 10
 
     def __init__(self, args):

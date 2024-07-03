@@ -10,7 +10,7 @@ from utils import save_statistics
 
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 100
+    MAX_EPS = 200
     def __init__(self, args):
         self.agents = {}
         self.total_rewards = []

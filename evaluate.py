@@ -1,5 +1,6 @@
 import argparse
 from evaluators.ippo_eval import IPPOEvaluator
+from evaluators.mappo_eval import MAPPOEvaluator
 
 def main():
     # Create the parser
@@ -44,7 +45,7 @@ def main():
         trainer = IPPOEvaluator(args)
         trainer.run()
     elif method == 'MAPPO':
-        trainer = IPPOEvaluator(args)
+        trainer = MAPPOEvaluator(args)
         trainer.run()
     elif method == 'MADDPG':
         trainer = IPPOEvaluator(args)

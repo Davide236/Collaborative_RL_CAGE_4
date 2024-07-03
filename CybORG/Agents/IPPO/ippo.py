@@ -56,6 +56,7 @@ class PPO:
     # Load the last saved networks
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
+        print(self.last_checkpoint_file_actor)
         # self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor['network_state_dict']))
         # self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic['network_state_dict']))
         # self.policy.actor_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
