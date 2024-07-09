@@ -57,7 +57,7 @@ class RDN_Network(nn.Module):
         self.rnd_optimizer = optim.Adam(self.predictor_network.parameters(), lr=1e-4)
         self.scheduler = ExponentialLR(self.rnd_optimizer, 0.999)
         self.running_mean_std = RunningMeanStd()
-        self.dm = 0.0  # Running average of squared distances of the k-th nearest neighbors
+        self.dm = 0.001  # Running average of squared distances of the k-th nearest neighbors
 
     def compute_similarity(self, state):
         knn = self.k
@@ -99,7 +99,6 @@ class RDN_Network(nn.Module):
         similarity = self.compute_similarity(state)
         episodic_reward = 1.0 / similarity
         alpha = self.compute_rnd_alpha(state)
-        print(episodic_reward, alpha)
         intrinsic_reward = episodic_reward * np.clip(alpha, 1, self.L)
         self.episodic_memory.append(state)
         return intrinsic_reward

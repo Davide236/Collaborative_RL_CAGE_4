@@ -211,7 +211,9 @@ class PPO:
         """
         # Transform the observations, actions and log probability list into tensors
         obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
-        rewards = rewards + 1*intrinsic_rewards
+        intrinsic_rewards = [[j*0.5 for j in i] for i in intrinsic_rewards]
+
+        rewards = rewards + intrinsic_rewards
         print(np.max(intrinsic_rewards))
         step = acts.size(0)
         index = np.arange(step)

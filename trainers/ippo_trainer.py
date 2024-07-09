@@ -11,7 +11,7 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network
 class PPOTrainer:
     EPISODE_LENGTH = 500
     MAX_EPS = 4000
-    ROLLOUT = 2
+    ROLLOUT = 10
 
     def __init__(self, args):
         self.agents = {}
