@@ -11,7 +11,7 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network
 class PPOTrainer:
     EPISODE_LENGTH = 500
     MAX_EPS = 4000
-    ROLLOUT = 10
+    ROLLOUT = 2
 
     def __init__(self, args):
         self.agents = {}
@@ -64,6 +64,13 @@ class PPOTrainer:
                 actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
 
+                intrinsic_rewards = {
+                    agent_name: agent.get_exploration_reward(
+                        observations[agent_name]
+                    )
+                    for agent_name, agent in self.agents.items()
+                    if agent_name in self.env.agents
+                }
                 # Perform action on the environment
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
@@ -73,7 +80,8 @@ class PPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward[agent_name], done)
+                    # Intrinsic Rew
+                    agent.memory.save_end_episode(reward[agent_name],intrinsic_rewards[agent_name], done)
                 # This terminates if all agent have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
@@ -83,10 +91,10 @@ class PPOTrainer:
                 if all(done.values()):
                     break
                 r.append(mean(reward.values()))  # Add rewards  
-            print(f"Final reward of the episode: {sum(r)}, length {self.count}")
             # Add to partial rewards  
             self.partial_rewards += sum(r)
             self.total_rewards.append(sum(r))
+            print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {mean(self.total_rewards)}")
             # Print average reward before rollout
             if (i+1) % self.ROLLOUT == 0:
                 avg_rwd = self.partial_rewards/self.ROLLOUT
@@ -103,7 +111,7 @@ class PPOTrainer:
             # Save rewards, state values and termination flags (divided per episodes)    
             for agent_name, agent in self.agents.items():
                 agent.memory.save_episode()
-                # Every 5 episodes perform a policy update
+                # Every X episodes perform a policy update
                 if (i+1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count) 

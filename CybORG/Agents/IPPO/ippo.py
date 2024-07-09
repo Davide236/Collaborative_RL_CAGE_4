@@ -1,13 +1,14 @@
 from CybORG.Agents.IPPO.networks import ActorCritic
 from CybORG.Agents.Messages.message_handler import MessageHandler
 from CybORG.Agents.IPPO.buffer import ReplayBuffer
+from CybORG.Agents.IPPO.rnd_net import RDN_Network
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
 import numpy as np
 import yaml
 import os
-import csv
+
 
 class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, messages):
@@ -21,8 +22,13 @@ class PPO:
         self.use_messages = messages
         self.agent_number = number
         self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
+        self.rdn = RDN_Network(state_dimension)
+
+
+    def get_exploration_reward(self, state):
+        return self.rdn.compute_intrinsic_reward(state)
     
-    
+
     def get_action(self, state):
         """
         Args:
@@ -91,6 +97,7 @@ class PPO:
         self.gamma = float(params.get('gamma', 0.99))
         self.clip = float(params.get('clip', 0.1))
         self.lr = float(params.get('lr', 2.5e-4))
+        self.min_lr = float(params.get('lr', 5e-6))
         self.eps = float(params.get('eps', 1e-5))
         self.gae_lambda = float(params.get('gae_lambda', 0.95))
         self.entropy_coeff = float(params.get('entropy_coeff', 0.01))
@@ -114,8 +121,10 @@ class PPO:
         """
         frac = (steps-1)/self.max_episodes
         new_lr = self.lr * (1-frac)
+        new_lr = max(new_lr, self.min_lr)
         self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
+
     
     def evaluate(self, observations, actions):
         """
@@ -201,7 +210,9 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs, acts, logprob, rewards, state_val, terminal = self.memory.get_batch()
+        obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
+        rewards = rewards + 1*intrinsic_rewards
+        print(np.max(intrinsic_rewards))
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
@@ -265,4 +276,7 @@ class PPO:
         self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)
+        self.rdn.anneal_lr()
+        self.rdn.update_predictor(obs)
+        self.rdn.reset_memory()
 
