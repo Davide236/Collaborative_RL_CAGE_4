@@ -7,7 +7,7 @@ from CybORG.Agents.QMIX.buffer import ReplayBuffer
 from statistics import mean, stdev
 import os
 import matplotlib.pyplot as plt
-from utils import save_statistics, save_agent_data_mixer, save_agent_network
+from utils import save_statistics, save_agent_data_mixer, save_agent_network, rewards_handler
 
 
 
@@ -97,6 +97,7 @@ class QMIXTrainer:
                 }
                 # Perform action on the environment
                 new_observations, reward, termination, truncation, _ = self.env.step(actions)
+                reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 done = []
                 for i in range(5):

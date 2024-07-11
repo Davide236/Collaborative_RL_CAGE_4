@@ -2,7 +2,14 @@ import csv
 import matplotlib.pyplot as plt
 from statistics import mean, stdev
 import torch
+import re
 
+def rewards_handler(rewards):
+    formatted_rewards = {}
+    for agent, rew in rewards.items():
+        agent_number = re.findall(f'\d', agent)
+        formatted_rewards[agent] = rew[int(agent_number[0])]
+    return formatted_rewards
 
 def save_agent_data_mixer(agents):
     data = zip(agents.loss)

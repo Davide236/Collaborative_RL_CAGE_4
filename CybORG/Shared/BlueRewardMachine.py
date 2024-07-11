@@ -4,6 +4,7 @@ from CybORG.Simulator.State import State
 from CybORG.Simulator.Actions.GreenActions import GreenAccessService, GreenLocalWork
 from CybORG.Simulator.Actions.AbstractActions.Impact import Impact
 from CybORG.Simulator.Actions.Action import InvalidAction
+import numpy as np
 
 class BlueRewardMachine(RewardCalculator):
     """The reward calculator for CC4
@@ -89,7 +90,7 @@ class BlueRewardMachine(RewardCalculator):
         """
         reward_list = []
         self.phase_rewards = self.get_phase_rewards(state.mission_phase)
-
+        agents_rewards = np.zeros(5)
         for agent_name, action in action_dict.items():
             if not action:
                 continue
@@ -104,7 +105,15 @@ class BlueRewardMachine(RewardCalculator):
 
             subnet_name = state.hostname_subnet_map[hostname].value
             sessions = state.sessions[agent_name].values()
-
+            key = 4
+            if subnet_name == 'restricted_zone_a_subnet':
+                key = 0
+            elif subnet_name == 'operational_zone_a_subnet':
+                key = 1
+            elif subnet_name == 'restricted_zone_b_subnet':
+                key = 2
+            elif subnet_name == 'operational_zone_b_subnet':
+                key = 3
             if len([session.ident for session in sessions if session.active]) > 0:
                 success = agent_observations[agent_name].observations[0].data['success']
                 rewards_for_zone = self.phase_rewards[subnet_name]
@@ -112,13 +121,15 @@ class BlueRewardMachine(RewardCalculator):
                 if 'green' in agent_name and success == False:
                     if isinstance(action, GreenLocalWork):
                         reward_list.append(rewards_for_zone["LWF"])
+                        agents_rewards[key] += rewards_for_zone["LWF"]
                     elif isinstance(action, GreenAccessService):
                         reward_list.append(rewards_for_zone["ASF"])
-
+                        agents_rewards[key] +=rewards_for_zone["ASF"]
                 elif 'red' in agent_name and success and isinstance(action, Impact):
                     reward_list.append(rewards_for_zone["RIA"])
+                    agents_rewards[key] +=rewards_for_zone["RIA"]
 
-        return sum(reward_list)
+        return agents_rewards
 
 
   

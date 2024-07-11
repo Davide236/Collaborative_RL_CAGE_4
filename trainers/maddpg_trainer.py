@@ -8,7 +8,7 @@ from CybORG.Agents.MADDPG.replay_buffer import MultiAgentReplayBuffer
 
 import csv
 import matplotlib.pyplot as plt
-from utils import save_statistics, save_agent_data_maddpg, save_agent_network
+from utils import save_statistics, save_agent_data_maddpg, save_agent_network, rewards_handler
 
 
 class MADDPGTrainer:
@@ -95,6 +95,7 @@ class MADDPGTrainer:
                 old_central_observations = self.concatenate_observations(observations)
                 # Perform action on the environment
                 new_observations, reward, termination, truncation, _ = self.env.step(actions)
+                reward = rewards_handler(reward)
                 new_central_observations = self.concatenate_observations(new_observations)
                 # Append the rewards and termination for each agent
                 done = []

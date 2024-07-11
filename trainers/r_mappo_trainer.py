@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import yaml
 import os
-from utils import save_statistics, save_agent_data_ppo, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewards_handler
 
 
 
@@ -121,7 +121,8 @@ class RecurrentMAPPOTrainer:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
-
+                
+                reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]

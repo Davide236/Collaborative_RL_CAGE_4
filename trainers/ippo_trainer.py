@@ -5,7 +5,7 @@ from CybORG.Agents.IPPO.ippo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 
-from utils import save_statistics, save_agent_data_ppo, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewards_handler
 
 
 class PPOTrainer:
@@ -69,7 +69,8 @@ class PPOTrainer:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
-
+                
+                reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
@@ -82,7 +83,7 @@ class PPOTrainer:
                 # If all agents are done (truncation) then end the episode
                 if all(done.values()):
                     break
-                r.append(mean(reward.values()))  # Add rewards  
+                r.append(sum(reward.values()))  # Add rewards  
             print(f"Final reward of the episode: {sum(r)}, length {self.count}")
             # Add to partial rewards  
             self.partial_rewards += sum(r)

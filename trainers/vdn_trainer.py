@@ -4,7 +4,7 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.VDN.vdn import VDN
 from statistics import mean, stdev
-from utils import save_statistics, save_agent_data_mixer, save_agent_network
+from utils import save_statistics, save_agent_data_mixer, save_agent_network, rewards_handler
 
 
 class VDNTrainer:
@@ -85,6 +85,7 @@ class VDNTrainer:
                 }
                 # Perform action on the environment
                 new_observations, reward, termination, truncation, _ = self.env.step(actions)
+                reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 done = []
                 for i in range(5):
