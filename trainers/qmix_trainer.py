@@ -31,7 +31,7 @@ class QMIXTrainer:
         self.messages = args.Messages
 
     def setup_agents(self, env):
-        n_agents = 5
+        n_agents = 7
         actor_dims = []
         agents_actions = []
         # Dimension of observation_space (for each agent)
@@ -58,7 +58,7 @@ class QMIXTrainer:
     @staticmethod
     def transform_observations(obs):
         observations = []
-        for i in range(5):
+        for i in range(7):
             observations.append(obs[f'blue_agent_{i}'])
         return observations
 
@@ -93,13 +93,13 @@ class QMIXTrainer:
                 acts = self.agents.choose_actions(self.transform_observations(observations))
                 actions = {
                     f'blue_agent_{i}': acts[i]
-                    for i in range(5)
+                    for i in range(7)
                 }
                 # Perform action on the environment
                 new_observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Append the rewards and termination for each agent
                 done = []
-                for i in range(5):
+                for i in range(7):
                     agent_name = f'blue_agent_{i}'
                     done.append(termination[agent_name] or truncation[agent_name])
                 obs1 = self.transform_observations(observations)

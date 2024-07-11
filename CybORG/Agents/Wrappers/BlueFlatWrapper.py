@@ -162,7 +162,7 @@ class BlueFlatWrapper(BlueFixedActionWrapper):
 
         self._observation_space = {
             agent: long_observation_space
-            if self.is_padded or agent == "blue_agent_4"
+            if self.is_padded
             else short_observation_space
             for agent in self.agents
         }

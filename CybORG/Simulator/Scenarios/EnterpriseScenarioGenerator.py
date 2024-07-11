@@ -625,7 +625,9 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             [SUBNET.OPERATIONAL_ZONE_A.value],
             [SUBNET.RESTRICTED_ZONE_B.value],
             [SUBNET.OPERATIONAL_ZONE_B.value],
-            [SUBNET.PUBLIC_ACCESS_ZONE.value, SUBNET.ADMIN_NETWORK.value, SUBNET.OFFICE_NETWORK.value]
+            [SUBNET.PUBLIC_ACCESS_ZONE.value],
+            [SUBNET.ADMIN_NETWORK.value],
+            [SUBNET.OFFICE_NETWORK.value]
         ]
         for allowed_subnets in blue_agent_allowed_subnets:
             i = blue_agent_allowed_subnets.index(allowed_subnets)

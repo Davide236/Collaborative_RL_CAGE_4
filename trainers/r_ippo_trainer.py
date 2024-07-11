@@ -31,7 +31,7 @@ class RecurrentIPPOTrainer:
             env.observation_space(f'blue_agent_{agent}').shape[0],
             len(env.get_action_space(f'blue_agent_{agent}')['actions']),
             self.MAX_EPS * self.EPISODE_LENGTH, agent, self.messages)
-            for agent in range(5)
+            for agent in range(7)
         }
         return agents
 

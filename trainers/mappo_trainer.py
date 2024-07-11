@@ -49,7 +49,7 @@ class MAPPOTrainer:
         centralized_critic = CriticNetwork(
             env.observation_space('blue_agent_4').shape[0],
             env.observation_space('blue_agent_0').shape[0],
-            5, lr, eps, fc
+            7, lr, eps, fc
         )
         message_type = params.get('message_type', 'simple')
         return centralized_critic, message_type
@@ -76,7 +76,7 @@ class MAPPOTrainer:
                 agent,
                 self.centralized_critic,
                 self.messages
-            ) for agent in range(5)
+            ) for agent in range(7)
         }
         print(f'Using agents {self.agents}')
         if self.load_best_network:
