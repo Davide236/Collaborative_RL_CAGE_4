@@ -28,4 +28,4 @@ class DeployDecoy(DecoyAction):
 
     def __init__(self, *, session: int, agent: str, hostname: str):
         super().__init__(session=session, agent=agent, hostname=hostname)
-        self.duration = 2
+        self.duration = 1

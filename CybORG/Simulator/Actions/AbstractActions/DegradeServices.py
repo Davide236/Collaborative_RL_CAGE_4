@@ -33,7 +33,7 @@ class DegradeServices(Action):
         self.agent = agent
         self.session = session
         self.hostname = hostname
-        self.duration=2
+        self.duration= 1
 
     def execute(self, state: State) -> Observation:
         """Executes the DegradeServices action.

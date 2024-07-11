@@ -133,7 +133,7 @@ class StealthServiceDiscovery(DiscoverNetworkServices):
             The ip_address of the target host.
         """
         super().__init__(session, agent, ip_address)
-        self.duration = 3
+        self.duration = 1
         self.detection_rate = 0.25
 
 

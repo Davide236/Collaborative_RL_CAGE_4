@@ -37,7 +37,7 @@ class Remove(Action):
         self.agent = agent
         self.session = session
         self.hostname = hostname
-        self.duration = 3
+        self.duration = 1
 
     def execute(self, state: State) -> Observation:
         """ Executes the action.

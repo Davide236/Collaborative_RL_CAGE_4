@@ -36,7 +36,7 @@ class DiscoverDeception(RemoteAction):
         """
         super().__init__(session, agent)
         self.ip_address = ip_address
-        self.duration = 2
+        self.duration = 1
         self.detection_rate = 0.5
         self.fp_rate = 0.1
         self.target_hostname = None

@@ -79,7 +79,7 @@ class PrivilegeEscalate(Action):
         self.session = session
         self.hostname = hostname
         self.escalate_action_selector = _default_escalate_action_selector
-        self.duration=2
+        self.duration= 1
     
 
     def __perform_escalate(self, state:State, sessions:List[Session]) -> Tuple[Observation, int]:

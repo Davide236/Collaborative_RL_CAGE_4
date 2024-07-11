@@ -33,7 +33,7 @@ class Restore(Action):
         self.agent = agent
         self.session = session
         self.hostname = hostname
-        self.duration = 5
+        self.duration = 1
 
     def execute(self, state) -> Observation:
         """ Executes the action.

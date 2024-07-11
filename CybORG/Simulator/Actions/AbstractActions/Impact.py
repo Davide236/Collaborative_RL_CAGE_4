@@ -33,7 +33,7 @@ class Impact(Action):
         self.agent = agent
         self.session = session
         self.hostname = hostname
-        self.duration=2
+        self.duration= 1
 
     def execute(self, state: State) -> Observation:
         """ Execution of the Impact action that stops any OT service on the host, if red has a privileged shell on the host.
