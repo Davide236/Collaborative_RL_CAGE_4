@@ -124,7 +124,21 @@ class PPO:
         new_lr = max(new_lr, self.min_lr)
         self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
+    
 
+    def anneal_extrinsic_reward(self, steps):
+        """
+        Args: None
+
+        Returns: None
+
+        Explanation: Decrease the learning rate through the episodes 
+                    to promote eploitation over exploration
+        """
+        frac = (steps-1)/(self.max_episodes/2)
+        new_weight = 0.5 * (1-frac)
+        weight = max(new_weight, 0)
+        return weight
     
     def evaluate(self, observations, actions):
         """
@@ -211,10 +225,10 @@ class PPO:
         """
         # Transform the observations, actions and log probability list into tensors
         obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
-        intrinsic_rewards = [[j*0.5 for j in i] for i in intrinsic_rewards]
+        reward_scaler = self.anneal_extrinsic_reward(total_steps)
+        intrinsic_rewards = [[j*reward_scaler for j in i] for i in intrinsic_rewards]
 
         rewards = rewards + intrinsic_rewards
-        print(np.max(intrinsic_rewards))
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
