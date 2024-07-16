@@ -32,7 +32,7 @@ class MADDPGTrainer:
         self.messages = args.Messages
 
     def setup_agents(self):
-        n_agents = 7
+        n_agents = 3
         actor_dims = []
         agents_actions = []
         # Dimension of observation_space (for each agent)
@@ -48,14 +48,14 @@ class MADDPGTrainer:
     @staticmethod
     def transform_observations(obs):
         observations = []
-        for i in range(7):
+        for i in range(3):
             observations.append(obs[f'blue_agent_{i}'])
         return observations
 
     @staticmethod
     def concatenate_observations(observations):
         observations_list = []
-        for i in range(7):
+        for i in range(3):
             agent_name = f'blue_agent_{i}'
             observations_list.extend(observations[agent_name])
         return observations_list
@@ -90,7 +90,7 @@ class MADDPGTrainer:
                 acts = self.agents.choose_actions(observations, evaluate=False)
                 actions = {
                     f'blue_agent_{i}': acts[i]
-                    for i in range(7)
+                    for i in range(3)
                 }
                 old_central_observations = self.concatenate_observations(observations)
                 # Perform action on the environment
@@ -98,7 +98,7 @@ class MADDPGTrainer:
                 new_central_observations = self.concatenate_observations(new_observations)
                 # Append the rewards and termination for each agent
                 done = []
-                for i in range(7):
+                for i in range(3):
                     agent_name = f'blue_agent_{i}'
                     done.append(termination[agent_name] or truncation[agent_name])
                 obs1 = self.transform_observations(observations)

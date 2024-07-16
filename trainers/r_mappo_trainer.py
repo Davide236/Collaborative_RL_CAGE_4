@@ -49,7 +49,7 @@ class RecurrentMAPPOTrainer:
         lr = float(params.get('lr', 2.5e-4))
         eps = float(params.get('eps', 1e-5))
         fc = int(params.get('fc', 256))
-        centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0], env.observation_space('blue_agent_0').shape[0], 7, fc)
+        centralized_critic = CriticNetwork(env.observation_space('blue_agent_4').shape[0], env.observation_space('blue_agent_0').shape[0], 3, fc)
         critic_optimizer = torch.optim.Adam(centralized_critic.parameters(), lr=lr, eps=eps)
         message_type = params.get('message_type', 'simple')
         return centralized_critic, critic_optimizer, message_type
@@ -61,7 +61,7 @@ class RecurrentMAPPOTrainer:
         return checkpoint_file_critic, last_checkpoint_file_critic
 
     def setup_agents(self, env):
-        agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), self.MAX_EPS * self.EPISODE_LENGTH, agent, self.centralized_critic, self.critic_optimizer, self.messages) for agent in range(7)}
+        agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), self.MAX_EPS * self.EPISODE_LENGTH, agent, self.centralized_critic, self.critic_optimizer, self.messages) for agent in range(3)}
         return agents
 
     def initialize_environment(self):

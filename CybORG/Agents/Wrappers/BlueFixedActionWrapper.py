@@ -16,7 +16,7 @@ SUBNET_USER_FORMAT = "{subnet}_user_host_{host}"
 SUBNET_SERVER_FORMAT = "{subnet}_server_host_{host}"
 SUBNET_ROUTER_FORMAT = "{subnet}_router"
 
-NUM_MESSAGES = 6
+NUM_MESSAGES = 2
 MESSAGE_LENGTH = 8
 EMPTY_MESSAGE = np.zeros(MESSAGE_LENGTH, dtype=bool)
 

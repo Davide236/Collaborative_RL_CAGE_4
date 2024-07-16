@@ -27,7 +27,7 @@ class VDNTrainer:
         self.messages = args.Messages
 
     def setup_agents(self, env):
-        n_agents = 7
+        n_agents = 3
         actor_dims = []
         agents_actions = []
         # Dimension of observation_space (for each agent)
@@ -44,7 +44,7 @@ class VDNTrainer:
     @staticmethod
     def transform_observations(obs):
         observations = []
-        for i in range(7):
+        for i in range(3):
             observations.append(obs[f'blue_agent_{i}'])
         return observations
 
@@ -81,13 +81,13 @@ class VDNTrainer:
                 acts = self.agents.get_actions(self.transform_observations(observations))
                 actions = {
                     f'blue_agent_{i}': int(acts[i])
-                    for i in range(7)
+                    for i in range(3)
                 }
                 # Perform action on the environment
                 new_observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Append the rewards and termination for each agent
                 done = []
-                for i in range(7):
+                for i in range(3):
                     agent_name = f'blue_agent_{i}'
                     done.append(termination[agent_name] or truncation[agent_name])
                 obs1 = self.transform_observations(observations)

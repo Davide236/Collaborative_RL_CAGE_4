@@ -25,6 +25,7 @@ from CybORG.Agents.Wrappers.BlueFixedActionWrapper import (
 
 NUM_SUBNETS = 9
 NUM_HQ_SUBNETS = 3
+NUM_DEPLOYED_SUBNETS = 2
 
 MAX_USER_HOSTS = EnterpriseScenarioGenerator.MAX_USER_HOSTS
 MAX_SERVER_HOSTS = EnterpriseScenarioGenerator.MAX_SERVER_HOSTS
@@ -148,9 +149,8 @@ class BlueFlatWrapper(BlueFixedActionWrapper):
                 ]
             )
         )
-
         short_observation_components = (
-            observation_head + observation_middle + observation_tail
+            observation_head + NUM_DEPLOYED_SUBNETS*observation_middle + observation_tail
         )
 
         long_observation_components = (
@@ -162,11 +162,10 @@ class BlueFlatWrapper(BlueFixedActionWrapper):
 
         self._observation_space = {
             agent: long_observation_space
-            if self.is_padded
+            if self.is_padded or agent == "blue_agent_2"
             else short_observation_space
             for agent in self.agents
         }
-
         return short_observation_space, long_observation_space
 
     def observation_change(self, agent_name: str, observation: dict) -> np.ndarray:
