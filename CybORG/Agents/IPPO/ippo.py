@@ -226,6 +226,7 @@ class PPO:
         # Transform the observations, actions and log probability list into tensors
         obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
         reward_scaler = self.anneal_extrinsic_reward(total_steps)
+        print(f'Scaler: {reward_scaler}')
         intrinsic_rewards = [[j*reward_scaler for j in i] for i in intrinsic_rewards]
 
         rewards = rewards + intrinsic_rewards
