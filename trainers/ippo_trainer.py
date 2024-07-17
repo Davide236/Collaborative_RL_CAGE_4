@@ -84,10 +84,10 @@ class PPOTrainer:
                 if all(done.values()):
                     break
                 r.append(sum(reward.values()))  # Add rewards  
-            print(f"Final reward of the episode: {sum(r)}, length {self.count}")
             # Add to partial rewards  
             self.partial_rewards += sum(r)
             self.total_rewards.append(sum(r))
+            print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {mean(self.total_rewards)}")
             # Print average reward before rollout
             if (i+1) % self.ROLLOUT == 0:
                 avg_rwd = self.partial_rewards/self.ROLLOUT

@@ -128,14 +128,4 @@ class BlueRewardMachine(RewardCalculator):
                 elif 'red' in agent_name and success and isinstance(action, Impact):
                     reward_list.append(rewards_for_zone["RIA"])
                     agents_rewards[key] +=rewards_for_zone["RIA"]
-
         return agents_rewards
-
-
-  
-        
-        
- 
-     
-        
-    

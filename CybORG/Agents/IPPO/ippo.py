@@ -216,7 +216,7 @@ class PPO:
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
-        #A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
+        A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
         # Reduce the learning rate
         self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs
