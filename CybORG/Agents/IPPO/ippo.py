@@ -97,7 +97,7 @@ class PPO:
         self.gamma = float(params.get('gamma', 0.99))
         self.clip = float(params.get('clip', 0.1))
         self.lr = float(params.get('lr', 2.5e-4))
-        self.min_lr = float(params.get('lr', 5e-6))
+        self.min_lr = float(params.get('min_lr', 5e-6))
         self.eps = float(params.get('eps', 1e-5))
         self.gae_lambda = float(params.get('gae_lambda', 0.95))
         self.entropy_coeff = float(params.get('entropy_coeff', 0.01))
@@ -138,6 +138,7 @@ class PPO:
         frac = (steps-1)/(self.max_episodes/2)
         new_weight = 0.5 * (1-frac)
         weight = max(new_weight, 0)
+        weight = 0.0
         return weight
     
     def evaluate(self, observations, actions):
@@ -244,7 +245,7 @@ class PPO:
         # Future rewards based on advantage and state value
         rtgs = A_k + state_values.detach()
         # Normalize the advantage
-        #A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
+        A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
         # Reduce the learning rate
         self.anneal_lr(total_steps)
         # Perform the updates for X amount of epochs

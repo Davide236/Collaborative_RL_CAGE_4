@@ -13,9 +13,7 @@ from utils import save_statistics, save_agent_data_mixer, save_agent_network
 
 class QMIXTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 3000
-    ROLLOUT = 5
-
+    
     def __init__(self, args):
         self.env = None
         self.agents = None
@@ -29,6 +27,8 @@ class QMIXTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.rollout = args.Rollout
+        self.max_eps = args.Episodes
 
     def setup_agents(self, env):
         n_agents = 5
@@ -83,7 +83,7 @@ class QMIXTrainer:
 
     def run(self):
         self.initialize_environment()
-        for eps in range(self.MAX_EPS):
+        for eps in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             r = []
@@ -125,7 +125,7 @@ class QMIXTrainer:
             self.memory.append_episodic()
             if self.memory.ready():
                 print("Training...")
-                sample = self.memory.sample(self.ROLLOUT)
+                sample = self.memory.sample(self.rollout)
                 self.training_steps += 1
                 self.agents.train(sample, self.training_steps)
         for number, network in enumerate(self.agents.agent_networks):

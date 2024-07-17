@@ -10,8 +10,6 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 class PPOTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 4000
-    ROLLOUT = 10
 
     def __init__(self, args):
         self.agents = {}
@@ -23,6 +21,8 @@ class PPOTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.rollout = args.Rollout
+        self.max_eps = args.Episodes
 
     def initialize_environment(self):
         sg = EnterpriseScenarioGenerator(blue_agent_class=SleepAgent,
@@ -35,7 +35,7 @@ class PPOTrainer:
         self.env = env
         self.agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0],
                                                   len(env.get_action_space(f'blue_agent_{agent}')['actions']),
-                                                  self.MAX_EPS*self.EPISODE_LENGTH, agent, self.messages) 
+                                                  self.max_eps*self.EPISODE_LENGTH, agent, self.messages) 
                        for agent in range(5)}
         print(f'Using agents {self.agents}')
         if self.load_best_network:
@@ -47,7 +47,7 @@ class PPOTrainer:
 
     def run(self):
         self.initialize_environment()
-        for i in range(self.MAX_EPS):
+        for i in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             r = []
@@ -96,8 +96,8 @@ class PPOTrainer:
             self.total_rewards.append(sum(r))
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {mean(self.total_rewards)}")
             # Print average reward before rollout
-            if (i+1) % self.ROLLOUT == 0:
-                avg_rwd = self.partial_rewards/self.ROLLOUT
+            if (i+1) % self.rollout == 0:
+                avg_rwd = self.partial_rewards/self.rollout
                 avg = sum(self.average_rewards) + self.partial_rewards
                 self.average_rewards.append(avg_rwd)
                 print(f"Average reward obtained before update: {avg_rwd}, avg: {avg/(i+1)}")
@@ -112,7 +112,7 @@ class PPOTrainer:
             for agent_name, agent in self.agents.items():
                 agent.memory.save_episode()
                 # Every X episodes perform a policy update
-                if (i+1) % self.ROLLOUT == 0:
+                if (i+1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count) 
         save_agent_data_ppo(self.agents)

@@ -15,8 +15,6 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 class RecurrentMAPPOTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 4000
-    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -31,6 +29,8 @@ class RecurrentMAPPOTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.rollout = args.Rollout
+        self.max_eps = args.Episodes
         self.centralized_critic = None
         self.critic_optimizer = None
 
@@ -93,7 +93,7 @@ class RecurrentMAPPOTrainer:
 
     def run(self):
         self.initialize_environment()
-        for i in range(self.MAX_EPS):
+        for i in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             for agent_name, agent in self.agents.items():
@@ -140,8 +140,8 @@ class RecurrentMAPPOTrainer:
             self.total_rewards.append(sum(r))
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {mean(self.total_rewards)}")
             # Print average reward before rollout
-            if (i + 1) % self.ROLLOUT == 0:
-                avg_rwd = self.partial_rewards / self.ROLLOUT
+            if (i + 1) % self.rollout == 0:
+                avg_rwd = self.partial_rewards / self.rollout
                 self.average_rewards.append(avg_rwd)
                 print(f"Average reward obtained before update: {avg_rwd}")
                 # If the average reward is better than the best reward then save agents
@@ -155,7 +155,7 @@ class RecurrentMAPPOTrainer:
             for agent_name, agent in self.agents.items():
                 agent.memory.append_episodic()
                 # Every 5 episodes perform a policy update
-                if (i + 1) % self.ROLLOUT == 0:
+                if (i + 1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
         save_agent_data_ppo(self.agents)

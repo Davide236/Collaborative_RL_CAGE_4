@@ -9,8 +9,6 @@ from utils import save_statistics, save_agent_data_mixer, save_agent_network
 
 class VDNTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 1500
-    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -25,6 +23,8 @@ class VDNTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.rollout = args.Rollout
+        self.max_eps = args.Episodes
 
     def setup_agents(self, env):
         n_agents = 5
@@ -69,8 +69,8 @@ class VDNTrainer:
 
     def run(self):
         self.initialize_environment()
-        for eps in range(self.MAX_EPS):
-            self.agents.update_epsilon(eps, self.MAX_EPS)
+        for eps in range(self.max_eps):
+            self.agents.update_epsilon(eps, self.max_eps)
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             r = []

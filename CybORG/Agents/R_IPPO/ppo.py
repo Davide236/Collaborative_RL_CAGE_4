@@ -92,6 +92,7 @@ class PPO:
         self.gamma = float(params.get('gamma', 0.99))
         self.clip = float(params.get('clip', 0.1))
         self.lr = float(params.get('lr', 2.5e-4))
+        self.min_lr = float(params.get('min_lr', 5e-6))
         self.eps = float(params.get('eps', 1e-5))
         self.gae_lambda = float(params.get('gae_lambda', 0.95))
         self.entropy_coeff = float(params.get('entropy_coeff', 0.01))
@@ -121,6 +122,7 @@ class PPO:
         """
         frac = (steps-1)/self.max_episodes
         new_lr = self.lr * (1-frac)
+        new_lr = max(new_lr, self.min_lr)
         self.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.critic_optimizer.param_groups[0]["lr"] = new_lr
     

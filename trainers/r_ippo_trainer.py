@@ -10,8 +10,6 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 class RecurrentIPPOTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 4000
-    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -25,6 +23,8 @@ class RecurrentIPPOTrainer:
         self.messages = args.Messages
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
+        self.rollout = args.Rollout
+        self.max_eps = args.Episodes
 
     def setup_agents(self, env):
         agents = {f"blue_agent_{agent}": PPO(
@@ -56,7 +56,7 @@ class RecurrentIPPOTrainer:
 
     def run(self):
         self.initialize_environment()
-        for i in range(self.MAX_EPS):
+        for i in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             for agent_name, agent in self.agents.items():
@@ -99,10 +99,10 @@ class RecurrentIPPOTrainer:
             self.reward_before_update += sum(r)
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (i + 1)}")
             self.total_rewards.append(sum(r))
-            if (i + 1) % self.ROLLOUT == 0:
-                self.average_rewards.append(self.reward_before_update / self.ROLLOUT)
-                if self.reward_before_update / self.ROLLOUT > self.best_reward:
-                    self.best_reward = self.reward_before_update / self.ROLLOUT
+            if (i + 1) % self.rollout == 0:
+                self.average_rewards.append(self.reward_before_update / self.rollout)
+                if self.reward_before_update / self.rollout > self.best_reward:
+                    self.best_reward = self.reward_before_update / self.rollout
                     for agent_name, agent in self.agents.items():
                         save_agent_network(agent.actor, agent.actor_optimizer, agent.checkpoint_file_actor)
                         save_agent_network(agent.critic, agent.critic_optimizer, agent.checkpoint_file_critic)
@@ -111,7 +111,7 @@ class RecurrentIPPOTrainer:
             for agent_name, agent in self.agents.items():
                 agent.memory.append_episodic()
                 # Learn at every episode
-                if (i + 1) % self.ROLLOUT == 0:
+                if (i + 1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
         save_agent_data_ppo(self.agents)

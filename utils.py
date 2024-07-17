@@ -39,14 +39,18 @@ def save_statistics(total_rewards, average_rewards):
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
     total_rewards_transposed = [[elem] for elem in average_rewards]
+    
     with open('reward_history.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['Rewards'])  # Write header
         writer.writerows(total_rewards_transposed)
+    
+    plt.ion()  # Turn on interactive mode
+    plt.figure()  # Create a new figure
     plt.plot(total_rewards)
     plt.xlabel('Episode')
     plt.ylabel('Reward')
     plt.title('Reward per Episode')
     plt.grid(True)
-    plt.show()
+    plt.savefig('final_training.png')
     print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
