@@ -10,7 +10,7 @@ import re
 
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 10
+    MAX_EPS = 750
     def __init__(self, args):
         self.n_agents = 5
         self.agents = {}
@@ -69,7 +69,7 @@ class IPPOEvaluator:
                                          green_agent_class=EnterpriseGreenAgent,
                                          red_agent_class=FiniteStateRedAgent,
                                          steps=self.EPISODE_LENGTH)
-        cyborg = CybORG(scenario_generator=sg)  # Add Seed
+        cyborg = CybORG(scenario_generator=sg, seed=1)  # Add Seed
         env = BlueFlatWrapper(env=cyborg)
         env.reset()
         self.env = env
