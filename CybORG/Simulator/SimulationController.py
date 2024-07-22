@@ -307,9 +307,13 @@ class SimulationController(CybORGLogger):
             self.reward[team_name] = {}
             for reward_name, r_calc in team_calcs.items():
                 self.reward[team_name][reward_name] = self.calculate_reward(r_calc)
-            action_cost = sum(actions.get(agent, Action()).cost for agent in self.team[team_name])
             if team_name == 'Blue':
-                self.reward[team_name]['action_cost'] = action_cost/5
+                action_cost = [actions.get(agent, Action()).cost for agent in self.team[team_name]]
+                self.reward[team_name]['BlueRewardMachine'] += action_cost
+                self.reward[team_name]['action_cost'] = 0
+            else:
+                action_cost = sum(actions.get(agent, Action()).cost for agent in self.team[team_name])
+                self.reward[team_name]['action_cost'] = action_cost
         for host in self.state.hosts.values():
             host.update(self.state)
         self.state.update_data_links()
