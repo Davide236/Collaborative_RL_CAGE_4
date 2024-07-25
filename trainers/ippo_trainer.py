@@ -5,7 +5,7 @@ from CybORG.Agents.IPPO.ippo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
 
-from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewards_handler
+from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewards_handler, RewardNormalizer
 
 
 class PPOTrainer:
@@ -47,6 +47,8 @@ class PPOTrainer:
 
     def run(self):
         self.initialize_environment()
+        reward_normalizer = RewardNormalizer()
+
         for i in range(self.MAX_EPS):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
@@ -74,7 +76,8 @@ class PPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward[agent_name], done)
+                    new_rwd = reward_normalizer.normalize(reward[agent_name])
+                    agent.memory.save_end_episode(new_rwd, done)    
                 # This terminates if all agent have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
