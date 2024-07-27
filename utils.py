@@ -54,3 +54,19 @@ def save_statistics(total_rewards, average_rewards):
     plt.grid(True)
     plt.savefig('final_training.png')
     print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
+
+class RewardNormalizer:
+    def __init__(self, min_value=-17, max_value=0):
+        self.min_value = min_value
+        self.max_value = max_value
+    
+    def normalize(self, reward):
+        # Ensure the reward is within the expected range
+        if reward > self.max_value:
+            reward = self.max_value
+        elif reward < self.min_value:
+            reward = self.min_value
+
+        # Normalize the reward to the range [0, 1]
+        normalized_reward = (reward - self.min_value) / (self.max_value - self.min_value)
+        return normalized_reward
