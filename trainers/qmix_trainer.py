@@ -7,7 +7,7 @@ from CybORG.Agents.QMIX.buffer import ReplayBuffer
 from statistics import mean, stdev
 import os
 import matplotlib.pyplot as plt
-from utils import save_statistics, save_agent_data_mixer, save_agent_network
+from utils import save_statistics, save_agent_data_mixer, save_agent_network, RewardNormalizer
 
 
 
@@ -50,7 +50,7 @@ class QMIXTrainer:
         memory = ReplayBuffer(
             1_000_000,
             actor_dims,
-            batch_size=self.ROLLOUT,
+            batch_size=self.rollout,
             episode_length=self.EPISODE_LENGTH - 1
         )
         return agents, memory
@@ -83,6 +83,7 @@ class QMIXTrainer:
 
     def run(self):
         self.initialize_environment()
+        reward_normalizer = RewardNormalizer()
         for eps in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
@@ -125,9 +126,10 @@ class QMIXTrainer:
             self.memory.append_episodic()
             if self.memory.ready():
                 print("Training...")
-                sample = self.memory.sample(self.rollout)
+                sample, indices, _ = self.memory.sample(self.rollout)
                 self.training_steps += 1
-                self.agents.train(sample, self.training_steps)
+                td_errors = self.agents.train(sample, self.training_steps)
+                self.memory.set_priorities(indices, td_errors)
         for number, network in enumerate(self.agents.agent_networks):
             save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
             save_agent_network(network, self.agents.agent_optimizers[number], save_path)

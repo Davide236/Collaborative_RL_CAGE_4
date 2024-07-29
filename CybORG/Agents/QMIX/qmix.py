@@ -4,6 +4,8 @@ import random
 import math
 import os
 import yaml
+import torch.nn as nn
+import numpy as np
 
 from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
 #from qmix_net import QMixNet, AgentNetwork
@@ -72,17 +74,21 @@ class QMix():
         self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5))
         self.start_epsilon =float(params.get('start_epsilon', 1)) 
         self.end_epsilon = float(params.get('end_epsilon', 0.01))
+        self.start_temperature =float(params.get('start_temperature', 0.5)) 
+        self.end_temperature = float(params.get('end_temperature', 0.01))
         self.fc = int(params.get('fc', 256))
         self.update_interval = int(params.get('update_interval', 10))
         self.message_type = params.get('message_type', 'simple')
         self.training_steps = 0
-        self.decay_steps = total_episodes*0.95 # Training Steps in which it takes to decay
+        self.decay_steps = total_episodes*0.8 # Training Steps in which it takes to decay
         # TODO: test with this
     
     # Exponential annealing
     def epsilon_annealing(self):
         epsilon = self.end_epsilon + (self.start_epsilon - self.end_epsilon) * math.exp(-self.training_steps / self.decay_steps)
         return epsilon
+    
+    
     
     def update_target_networks(self):
         for i in range(self.n_agents):
@@ -123,8 +129,13 @@ class QMix():
         total_episodes = len(batch)
         self.training_steps += 1
         q_evals, q_targets, rewards, terminated = [], [], [], []
+        pred_diff_arr = []
         for i in range(len(batch)):
             q_total_eval, q_total_target, rwrd, term = self.process_batch(batch[i])
+            pred_diff = rwrd[0] + torch.abs(q_total_eval - self.gamma*q_total_target)
+            pred_diff = pred_diff.detach().numpy()
+            aggregated_td_error = pred_diff.mean().item()
+            pred_diff_arr.append(aggregated_td_error)
             terminated.append(term)
             rewards.append(rwrd)
             q_evals.append(q_total_eval)
@@ -138,12 +149,7 @@ class QMix():
         dones = torch.stack(terminated, dim=1)
         dones = dones[0].view(total_episodes,self.episode_length,1)
         targets = rewards + self.gamma * q_targets * (1 - dones)
-        loss2 = F.smooth_l1_loss(q_evals, targets)
         loss = F.mse_loss(q_evals, targets)
-        # targets = rewards + self.gamma * q_targets * dones
-        # td_error = (q_evals - targets.detach())
-        # masked_td_error = dones * td_error
-        # loss = (masked_td_error ** 2).sum() / dones.sum()
         self.mixing_optimizer.zero_grad()
         for opt in self.agent_optimizers:
             opt.zero_grad()
@@ -157,31 +163,52 @@ class QMix():
         if count % self.update_interval:
             self.update_target_networks()
         self.loss.append(loss.item())
+        return pred_diff_arr
         
         
-        
+    
+    # Exponential annealing
+    def temperature_annealing(self):
+        epsilon = self.end_temperature + (self.start_temperature - self.end_temperature) * math.exp(-self.training_steps / self.decay_steps)
+        return epsilon
+    
+     
     # Choose an action for each agent with probability eps, otherwise select the one with
     # the highest Q Value
     def choose_actions(self, observations):
-        # TODO: Change this
         actions = []
         for i, agent in enumerate(self.agent_networks):
             obs = observations[i]
-            # In this case the Q_Value is based only on the state
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
-            # TODO: Check this
-            epsilon = self.epsilon_annealing()
-            random_value = random.random()
-            # With probability eps, do a random action
+            # Add small value to avoid division by 0
+            temperature = self.temperature_annealing()
+            soft = nn.Softmax(dim=-1)
+            # In this case the Q_Value is based only on the state
             if i == 4:
-                if random_value < epsilon:
-                    action = random.randint(0, q_value.shape[0]-1)
-                else:
-                    action = torch.argmax(q_value).item()
+                # TODO: Check temperature here
+                prob =  soft(q_value/temperature)
+                prob = prob.detach().numpy()
+                prob = prob / prob.sum()
             else:
-                if random_value < epsilon:
-                    action = random.randint(0, min(q_value.shape[0], 85) - 1)
-                else:
-                    action = torch.argmax(q_value[:85]).item()
+                mask = np.ones_like(q_value.detach().numpy())
+                mask[85:] = -np.inf  # Setting a very negative value
+                masked_q_value = q_value + torch.tensor(mask, dtype=torch.float32)
+                prob =  soft(masked_q_value/temperature)
+                prob = prob.detach().numpy()
+            action = np.random.choice(self.n_actions[i], p=prob)
+            # TODO: Check this
+            # epsilon = self.epsilon_annealing()
+            # random_value = random.random()
+            # # With probability eps, do a random action
+            # if i == 4:
+            #     if random_value < epsilon:
+            #         action = random.randint(0, q_value.shape[0]-1)
+            #     else:
+            #         action = torch.argmax(q_value).item()
+            # else:
+            #     if random_value < epsilon:
+            #         action = random.randint(0, min(q_value.shape[0], 85) - 1)
+            #     else:
+            #         action = torch.argmax(q_value[:85]).item()
             actions.append(action)
         return actions

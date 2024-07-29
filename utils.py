@@ -56,7 +56,7 @@ def save_statistics(total_rewards, average_rewards):
     print(f"Average reward: {rewards_mean}, standard deviation of {rewards_stdev}")
 
 class RewardNormalizer:
-    def __init__(self, min_value=-17, max_value=0):
+    def __init__(self, min_value=-35, max_value=0):
         self.min_value = min_value
         self.max_value = max_value
     
