@@ -25,20 +25,14 @@ class MADDPG:
             actions.append(action)
         return actions
     
-    def learn(self, memory):
-        if not memory.ready():
-            print("Memory not ready")
-            return
-        else:
-            print("Learning....")
-        sample = memory.sample_buffer()
-        # Observations samples
-        central_obs = T.concat(sample['obs'], axis = 1)
-        new_central_obs = T.concat(sample['new_obs'], axis=1)
+    def learn(self, sample):
+        print("Learning...")
+        central_obs = sample['central_obs'].transpose(0,1)
+        new_central_obs = sample['central_obs_next'].transpose(0,1)
 
         # Actions under the target network with the 'next' observations 
         target_actions = [
-            self.agents[i].target_actions(sample['new_obs'][i])
+            self.agents[i].target_actions(sample['obs_next'][i])
             for i in range(self.n_agents)
         ]
 
@@ -53,8 +47,9 @@ class MADDPG:
         ]
         rewards = sample['rewards']
         dones = sample['dones']
+        total_loss = []
         for i, agent in enumerate(self.agents):
-            agent.learn_critic(
+            actor_loss = agent.learn_critic(
                 obs = central_obs,
                 new_obs = new_central_obs,
                 target_actions = target_actions_one_hot,
@@ -62,11 +57,13 @@ class MADDPG:
                 rewards = rewards[i].unsqueeze(dim=1),
                 dones = dones[i].unsqueeze(dim=1)
             )
-            agent.learn_actor(
+            critic_loss = agent.learn_actor(
                 obs = central_obs,
                 agent_obs = sample['obs'][i],
                 sampled_actions = sample_actions_one_hot
             )
+            total_loss.append(actor_loss+critic_loss)
         for agent in self.agents:
             agent.update_network_parameters()
+        return [sum(total_loss)/self.n_agents for _ in range(self.n_agents)]
     

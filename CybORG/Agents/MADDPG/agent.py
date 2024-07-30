@@ -24,7 +24,7 @@ class Agent:
     def init_check_memory(self):
         self.actor_loss = []
         self.critic_loss = []
-        self.save_path = f'saved_statistics\maddpg\{self.message_type}\data_agent_{self.agent_name}.csv'
+        self.save_path = f'saved_statistics/maddpg/{self.message_type}/data_agent_{self.agent_name}.csv'
 
     
     # Load the last saved networks
@@ -49,10 +49,10 @@ class Agent:
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join(f'saved_networks\maddpg\{self.message_type}', f'actor_maddpg_{number}')
-        self.checkpoint_file_critic = os.path.join(f'saved_networks\maddpg\{self.message_type}', f'critic_maddpg_{number}')
-        self.last_checkpoint_file_actor = os.path.join(f'last_networks\maddpg\{self.message_type}', f'actor_maddpg_{number}')
-        self.last_checkpoint_file_critic = os.path.join(f'last_networks\maddpg\{self.message_type}', f'critic_maddpg_{number}')
+        self.checkpoint_file_actor = os.path.join(f'saved_networks/maddpg/{self.message_type}', f'actor_maddpg_{number}')
+        self.checkpoint_file_critic = os.path.join(f'saved_networks/maddpg/{self.message_type}', f'critic_maddpg_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks/maddpg/{self.message_type}', f'actor_maddpg_{number}')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks/maddpg/{self.message_type}', f'critic_maddpg_{number}')
 
 
     def init_hyperparameters(self, n_actions, agent_idx, n_agents):
@@ -91,18 +91,24 @@ class Agent:
     
     
     def choose_action(self, state, evaluate=False):
-        # TODO: Change this
-        #normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         normalized_state = state
         state = T.FloatTensor(normalized_state.reshape(1,-1))
         policy = self.actor.forward(state)
         action = self.gradient_estimator(policy, need_gradients=False)
+        if self.agent_idx != 4:
+            max_allowed_action = 85
+            mask = T.full(action.shape, float('-inf')).to(action.device)
+            action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
         selected_action = T.argmax(action, dim=-1)
         return selected_action.detach().item()
 
     def target_actions(self, state):
         policy = self.target_actor.forward(state)
         action = self.gradient_estimator(policy, need_gradients=False)
+        if self.agent_idx != 4:
+            max_allowed_action = 85
+            mask = T.full(action.shape, float('-inf')).to(action.device)
+            action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
         selected_action = T.argmax(action, dim=-1)
         return selected_action.detach()
 
@@ -120,6 +126,7 @@ class Agent:
         T.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
         self.critic.optimizer.step()
         self.critic_loss.append(loss.item())
+        return loss.item()
 
     def learn_actor(self, obs, agent_obs, sampled_actions):
         policy_outputs = self.actor(agent_obs)
@@ -137,3 +144,4 @@ class Agent:
         T.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actor.optimizer.step() 
         self.actor_loss.append(loss.item())
+        return loss.item()
