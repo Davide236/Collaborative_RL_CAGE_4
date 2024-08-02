@@ -95,20 +95,20 @@ class Agent:
         state = T.FloatTensor(normalized_state.reshape(1,-1))
         policy = self.actor.forward(state)
         action = self.gradient_estimator(policy, need_gradients=False)
-        if self.agent_idx != 4:
-            max_allowed_action = 85
-            mask = T.full(action.shape, float('-inf')).to(action.device)
-            action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
+        # if self.agent_idx != 4:
+        #     max_allowed_action = 85
+        #     mask = T.full(action.shape, float('-inf')).to(action.device)
+        #     action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
         selected_action = T.argmax(action, dim=-1)
         return selected_action.detach().item()
 
     def target_actions(self, state):
         policy = self.target_actor.forward(state)
         action = self.gradient_estimator(policy, need_gradients=False)
-        if self.agent_idx != 4:
-            max_allowed_action = 85
-            mask = T.full(action.shape, float('-inf')).to(action.device)
-            action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
+        # if self.agent_idx != 4:
+        #     max_allowed_action = 85
+        #     mask = T.full(action.shape, float('-inf')).to(action.device)
+        #     action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
         selected_action = T.argmax(action, dim=-1)
         return selected_action.detach()
 
