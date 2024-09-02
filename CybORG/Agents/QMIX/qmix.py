@@ -79,9 +79,9 @@ class QMix():
         self.fc = int(params.get('fc', 256))
         self.update_interval = int(params.get('update_interval', 10))
         self.message_type = params.get('message_type', 'simple')
+        self.exploration = params.get('exploration', 'greedy')
         self.training_steps = 0
         self.decay_steps = total_episodes*0.8 # Training Steps in which it takes to decay
-        # TODO: test with this
     
     # Exponential annealing
     def epsilon_annealing(self):
@@ -172,43 +172,52 @@ class QMix():
         epsilon = self.end_temperature + (self.start_temperature - self.end_temperature) * math.exp(-self.training_steps / self.decay_steps)
         return epsilon
     
-     
-    # Choose an action for each agent with probability eps, otherwise select the one with
-    # the highest Q Value
+
+    def eps_greedy(self, q_value, agent_idx):
+        epsilon = self.epsilon_annealing()
+        random_value = random.random()
+        # With probability eps, do a random action
+        if agent_idx == 4:
+            if random_value < epsilon:
+                action = random.randint(0, q_value.shape[0]-1)
+            else:
+                action = torch.argmax(q_value).item()
+        else:
+            if random_value < epsilon:
+                action = random.randint(0, min(q_value.shape[0], 85) - 1)
+            else:
+                action = torch.argmax(q_value[:85]).item()
+        return action
+    
+
+    def bolzman_exploration(self, q_value, agent_idx):
+        temperature = self.temperature_annealing()
+        soft = nn.Softmax(dim=-1)
+        # In this case the Q_Value is based only on the state
+        if agent_idx == 4:
+            prob =  soft(q_value/temperature)
+            prob = prob.detach().numpy()
+            prob = prob / prob.sum()
+        else:
+            mask = np.ones_like(q_value.detach().numpy())
+            mask[85:] = -np.inf  # Setting a very negative value
+            masked_q_value = q_value + torch.tensor(mask, dtype=torch.float32)
+            prob =  soft(masked_q_value/temperature)
+            prob = prob.detach().numpy()
+        action = np.random.choice(self.n_actions[agent_idx], p=prob)
+        return action
+
+
     def choose_actions(self, observations):
         actions = []
         for i, agent in enumerate(self.agent_networks):
             obs = observations[i]
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
-            # Add small value to avoid division by 0
-            temperature = self.temperature_annealing()
-            soft = nn.Softmax(dim=-1)
-            # In this case the Q_Value is based only on the state
-            if i == 4:
-                # TODO: Check temperature here
-                prob =  soft(q_value/temperature)
-                prob = prob.detach().numpy()
-                prob = prob / prob.sum()
+            if self.exploration == 'greedy':
+                action = self.eps_greedy(q_value, i)
             else:
-                mask = np.ones_like(q_value.detach().numpy())
-                mask[85:] = -np.inf  # Setting a very negative value
-                masked_q_value = q_value + torch.tensor(mask, dtype=torch.float32)
-                prob =  soft(masked_q_value/temperature)
-                prob = prob.detach().numpy()
-            action = np.random.choice(self.n_actions[i], p=prob)
-            # TODO: Check this
-            # epsilon = self.epsilon_annealing()
-            # random_value = random.random()
-            # # With probability eps, do a random action
-            # if i == 4:
-            #     if random_value < epsilon:
-            #         action = random.randint(0, q_value.shape[0]-1)
-            #     else:
-            #         action = torch.argmax(q_value).item()
-            # else:
-            #     if random_value < epsilon:
-            #         action = random.randint(0, min(q_value.shape[0], 85) - 1)
-            #     else:
-            #         action = torch.argmax(q_value[:85]).item()
+                action = self.bolzman_exploration(q_value, i)
+            # Add small value to avoid division by 0
             actions.append(action)
+        print(actions)
         return actions
