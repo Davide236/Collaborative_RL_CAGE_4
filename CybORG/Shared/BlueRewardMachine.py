@@ -128,4 +128,5 @@ class BlueRewardMachine(RewardCalculator):
                 elif 'red' in agent_name and success and isinstance(action, Impact):
                     reward_list.append(rewards_for_zone["RIA"])
                     agents_rewards[key] +=rewards_for_zone["RIA"]
+        total_agents_rewards = sum(reward_list)*0.5 # Total rewards excluded the action cost (added later per each agent)
         return agents_rewards

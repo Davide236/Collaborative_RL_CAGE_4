@@ -1,6 +1,7 @@
 # Copyright DST Group. Licensed under the MIT license.
 import gym
 from gym.utils.seeding import RandomNumberGenerator
+import numpy as np
 
 from typing import Dict, List, Tuple
 from CybORG.Shared import Scenario
@@ -309,7 +310,9 @@ class SimulationController(CybORGLogger):
                 self.reward[team_name][reward_name] = self.calculate_reward(r_calc)
             if team_name == 'Blue':
                 action_cost = [actions.get(agent, Action()).cost for agent in self.team[team_name]]
+                total_rew = sum(self.reward[team_name]['BlueRewardMachine'])
                 self.reward[team_name]['BlueRewardMachine'] += action_cost
+                self.reward[team_name]['BlueRewardMachine'] = np.append(self.reward[team_name]['BlueRewardMachine'], total_rew)
                 self.reward[team_name]['action_cost'] = 0
             else:
                 action_cost = sum(actions.get(agent, Action()).cost for agent in self.team[team_name])
