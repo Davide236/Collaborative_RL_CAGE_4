@@ -97,12 +97,12 @@ class QMIXTrainer:
                     f'blue_agent_{i}': acts[i]
                     for i in range(5)
                 }
-                messages = {
-                    f'blue_agent_{i}': msg[i]
-                    for i in range(5)
-                }
                 # Perform action on the environment
                 if self.messages:
+                    messages = {
+                        f'blue_agent_{i}': msg[i]
+                        for i in range(5)
+                    }
                     new_observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     new_observations, reward, termination, truncation, _ = self.env.step(actions)
