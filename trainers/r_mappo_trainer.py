@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import yaml
 import os
-from utils import save_statistics, save_agent_data_ppo, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
 
 
@@ -61,7 +61,7 @@ class RecurrentMAPPOTrainer:
         return checkpoint_file_critic, last_checkpoint_file_critic
 
     def setup_agents(self, env):
-        agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), self.MAX_EPS * self.EPISODE_LENGTH, agent, self.centralized_critic, self.critic_optimizer, self.messages) for agent in range(5)}
+        agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), self.max_eps * self.EPISODE_LENGTH, agent, self.centralized_critic, self.critic_optimizer, self.messages) for agent in range(5)}
         return agents
 
     def initialize_environment(self):
@@ -93,6 +93,7 @@ class RecurrentMAPPOTrainer:
 
     def run(self):
         self.initialize_environment()
+        reward_normalizer = RewardNormalizer()
         for i in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
@@ -125,7 +126,7 @@ class RecurrentMAPPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward[agent_name], done, observations_list)
+                    agent.memory.save_end_episode(reward_normalizer.normalize(reward[agent_name]), done, observations_list)
                 # This terminates if all agents have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
