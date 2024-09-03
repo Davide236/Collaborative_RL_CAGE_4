@@ -1,4 +1,5 @@
 from CybORG.Agents.MADDPG.networks import ActorNetwork, CriticNetwork
+from CybORG.Agents.Messages.message_handler import MessageHandler
 import torch as T
 from copy import deepcopy
 import torch.nn.functional as F
@@ -6,7 +7,7 @@ import yaml
 import os
 
 class Agent:
-    def __init__(self, actor_dims, critic_dims, n_actions,total_actions, agent_idx, n_agents, gradient_estimator):
+    def __init__(self, actor_dims, critic_dims, n_actions,total_actions, agent_idx, n_agents, gradient_estimator, messages):
         self.init_hyperparameters(n_actions, agent_idx, n_agents)
         self.agent_name = agent_idx
         self.gradient_estimator = gradient_estimator
@@ -17,7 +18,8 @@ class Agent:
         self.critic = CriticNetwork(self.lr,critic_dims, self.fc1, self.fc2, n_agents, total_actions)
         self.target_actor = ActorNetwork(self.lr, actor_dims, self.fc1, self.fc2, n_actions)
         self.target_critic = CriticNetwork(self.lr,critic_dims, self.fc1, self.fc2, n_agents, total_actions)
-        
+        self.use_messages = messages
+        self.message_handler = MessageHandler(message_type=self.message_type, number=agent_idx)
         self.update_network_parameters(tau=1)
     
     # Initialize arrays to save important information for the training
@@ -90,17 +92,20 @@ class Agent:
             target.data.copy_(tau * param.data + (1 - tau) * target.data)
     
     
-    def choose_action(self, state, evaluate=False):
+    def choose_action(self, state):
         normalized_state = state
-        state = T.FloatTensor(normalized_state.reshape(1,-1))
-        policy = self.actor.forward(state)
+        final_state = T.FloatTensor(normalized_state.reshape(1,-1))
+        policy = self.actor.forward(final_state)
         action = self.gradient_estimator(policy, need_gradients=False)
         # if self.agent_idx != 4:
         #     max_allowed_action = 85
         #     mask = T.full(action.shape, float('-inf')).to(action.device)
         #     action = T.where(T.arange(action.shape[-1]).to(action.device) > max_allowed_action, mask, action)
         selected_action = T.argmax(action, dim=-1)
-        return selected_action.detach().item()
+        message = []
+        if self.use_messages:
+            message = self.message_handler.prepare_message(state, selected_action.detach().item())
+        return selected_action.detach().item(), message
 
     def target_actions(self, state):
         policy = self.target_actor.forward(state)

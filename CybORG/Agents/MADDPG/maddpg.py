@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from CybORG.Agents.MADDPG.gradient import GST
 
 class MADDPG:
-    def __init__(self, actor_dims, critic_dims, n_agents, n_actions):
+    def __init__(self, actor_dims, critic_dims, n_agents, n_actions, messages):
         self.agents = []
         self.n_agents = n_agents
         # TODO: Change here, since actions space is different
@@ -15,15 +15,17 @@ class MADDPG:
         # Save the agents
         for agent_idx in range(self.n_agents):
             self.agents.append(Agent(actor_dims[agent_idx], critic_dims, n_actions[agent_idx],
-                                      n_actions, agent_idx, n_agents, gradient_estimator))
+                                      n_actions, agent_idx, n_agents, gradient_estimator, messages))
     
     # Get actions from all the agents
-    def choose_actions(self, raw_obs, evaluate=False):
+    def choose_actions(self, raw_obs):
         actions = []
+        messages = []
         for agent_idx, agent in enumerate(self.agents):
-            action = agent.choose_action(raw_obs[f'blue_agent_{agent_idx}'], evaluate)
+            action, message = agent.choose_action(raw_obs[f'blue_agent_{agent_idx}'])
             actions.append(action)
-        return actions
+            messages.append(message)
+        return actions, messages
     
     def learn(self, sample):
         print("Learning...")

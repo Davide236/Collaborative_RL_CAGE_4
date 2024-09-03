@@ -42,7 +42,7 @@ class MADDPGTrainer:
         print(actor_dims)
         print(agents_actions)
         critic_dims = sum(actor_dims)
-        agents = MADDPG(actor_dims, critic_dims, n_agents, agents_actions)
+        agents = MADDPG(actor_dims, critic_dims, n_agents, agents_actions,self.messages)
         memory = ReplayBuffer(
             2000,
             actor_dims,
@@ -93,14 +93,21 @@ class MADDPGTrainer:
             for j in range(self.EPISODE_LENGTH):  # Episode length
                 self.count += 1
                 # Action selection for all agents
-                acts = self.agents.choose_actions(observations, evaluate=False)
+                acts, msg = self.agents.choose_actions(observations)
                 actions = {
                     f'blue_agent_{i}': acts[i]
                     for i in range(5)
                 }
+                messages = {
+                    f'blue_agent_{i}': msg[i]
+                    for i in range(5)
+                }
                 old_central_observations = self.concatenate_observations(observations)
                 # Perform action on the environment
-                new_observations, reward, termination, truncation, _ = self.env.step(actions)
+                if self.messages:
+                    new_observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
+                else:
+                    new_observations, reward, termination, truncation, _ = self.env.step(actions)
                 new_central_observations = self.concatenate_observations(new_observations)
                 # Append the rewards and termination for each agent
                 done = []

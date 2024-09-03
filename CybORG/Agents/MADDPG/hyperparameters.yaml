@@ -5,4 +5,4 @@ gamma : 0.99
 tau : 0.01
 policy_regulariser : 0.001
 max_grad_norm : 0.5
-# message_type: '8_bits' # 'action', '2_bits'
+message_type: '8_bits' # 'action', '2_bits'

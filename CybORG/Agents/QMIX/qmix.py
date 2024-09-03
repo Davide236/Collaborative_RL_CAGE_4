@@ -7,12 +7,13 @@ import yaml
 import torch.nn as nn
 import numpy as np
 
+from CybORG.Agents.Messages.message_handler import MessageHandler
 from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
 #from qmix_net import QMixNet, AgentNetwork
 
 class QMix():
 
-    def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes):
+    def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes, messages):
         # TODO: Init Hyperparams method
         self.init_hyperparams(episode_length, total_episodes)
         self.init_check_memory()
@@ -27,7 +28,9 @@ class QMix():
         self.qmix_net_target = QMixNet(self.n_agents, state_space, self.fc)
         self.agent_optimizers = [torch.optim.Adam(agent.parameters(), lr=self.lr) for agent in self.agent_networks]
         self.mixing_optimizer = torch.optim.Adam(self.qmix_net_eval.parameters(), lr=self.lr)
-        
+        # Message setup
+        self.use_messages = messages
+        self.message_handler = [MessageHandler(message_type=self.message_type, number=agent_number) for agent_number in range(self.n_agents)] 
         #self.device = torch.device('cpu')
     
     def init_check_memory(self):
@@ -210,6 +213,7 @@ class QMix():
 
     def choose_actions(self, observations):
         actions = []
+        messages = []
         for i, agent in enumerate(self.agent_networks):
             obs = observations[i]
             q_value = agent(torch.tensor(obs, dtype=torch.float32))
@@ -219,5 +223,7 @@ class QMix():
                 action = self.bolzman_exploration(q_value, i)
             # Add small value to avoid division by 0
             actions.append(action)
-        print(actions)
-        return actions
+            if self.use_messages:
+                message  = self.message_handler[i].prepare_message(obs, action)
+                messages.append(message)
+        return actions, messages

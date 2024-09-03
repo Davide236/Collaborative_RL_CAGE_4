@@ -72,6 +72,7 @@ class PPOTrainer:
                     for agent_name, agent in self.agents.items()
                     if agent_name in self.env.agents
                 }
+                print(messages)
                 # Perform action on the environment
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)

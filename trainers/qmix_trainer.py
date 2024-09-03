@@ -45,7 +45,8 @@ class QMIXTrainer:
             obs_space=actor_dims,
             state_space=critic_dims,
             episode_length=self.EPISODE_LENGTH - 1,
-            total_episodes=self.EPISODE_LENGTH
+            total_episodes=self.EPISODE_LENGTH,
+            messages = self.messages
         )
         memory = ReplayBuffer(
             1_000_000,
@@ -91,13 +92,20 @@ class QMIXTrainer:
             for j in range(self.EPISODE_LENGTH):  # Episode length
                 self.count += 1
                 # Action selection for all agents
-                acts = self.agents.choose_actions(self.transform_observations(observations))
+                acts, msg = self.agents.choose_actions(self.transform_observations(observations))
                 actions = {
                     f'blue_agent_{i}': acts[i]
                     for i in range(5)
                 }
+                messages = {
+                    f'blue_agent_{i}': msg[i]
+                    for i in range(5)
+                }
                 # Perform action on the environment
-                new_observations, reward, termination, truncation, _ = self.env.step(actions)
+                if self.messages:
+                    new_observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
+                else:
+                    new_observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Append the rewards and termination for each agent
                 done = []
                 for i in range(5):
