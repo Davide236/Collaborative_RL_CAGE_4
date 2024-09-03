@@ -33,7 +33,8 @@ class PPOTrainer:
         env = BlueFlatWrapper(env=cyborg)
         env.reset()
         self.env = env
-        self.agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0],
+        obs_space = [89, 89, 89, 89, 201]
+        self.agents = {f"blue_agent_{agent}": PPO(obs_space[agent],#env.observation_space(f'blue_agent_{agent}').shape[0],
                                                   len(env.get_action_space(f'blue_agent_{agent}')['actions']),
                                                   self.max_eps*self.EPISODE_LENGTH, agent, self.messages) 
                        for agent in range(5)}

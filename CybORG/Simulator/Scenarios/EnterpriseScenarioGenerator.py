@@ -186,7 +186,7 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
         subnet_nacls = {
             SUBNET.RESTRICTED_ZONE_A: {
                 SUBNET.OPERATIONAL_ZONE_A: {"in": "None", "out": "all"},
-                SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"},
+                #SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"}, # Take this out
                 SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
             },
             SUBNET.OPERATIONAL_ZONE_A: {
@@ -194,17 +194,21 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             },
             SUBNET.RESTRICTED_ZONE_B: {
                 SUBNET.OPERATIONAL_ZONE_B: {"in": "None", "out": "all"},
-                SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"},
+                #SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"}, # Take this out
+                # Add the two other parts of HQ network (?)
                 SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
             },
             SUBNET.OPERATIONAL_ZONE_B: {
                 SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "None"}
             },
+            # Contractor Network, where the red agent comes from
             SUBNET.CONTRACTOR_NETWORK: {
-                SUBNET.RESTRICTED_ZONE_A: {"in": "all", "out": "all"},
-                SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "all"},
+                #SUBNET.RESTRICTED_ZONE_A: {"in": "all", "out": "all"}, # Take this out
+                #SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "all"}, # Take this out
+                # Add the two other parts of the HQ network (?)
                 SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
             },
+            # This is the main part of the HQ network which is connected to the rest as well
             SUBNET.PUBLIC_ACCESS_ZONE: {
                 SUBNET.RESTRICTED_ZONE_A: {"in": "all", "out": "all"},
                 SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "all"},
@@ -212,31 +216,38 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
                 SUBNET.ADMIN_NETWORK: {"in": "all", "out": "all"},
                 SUBNET.OFFICE_NETWORK: {"in": "all", "out": "all"},
             },
+            # Same thing as office network
             SUBNET.ADMIN_NETWORK: {
+                # Add other parts of the network (?) - Like RZA and RZB
                 SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
                 SUBNET.OFFICE_NETWORK: {"in": "all", "out": "all"}
             },
+            # Part of HQ Network, connected to the other two parts of the HQ network
             SUBNET.OFFICE_NETWORK: {
+                # Add other parts of the network (?) - Like RZA and RZB
                 SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
                 SUBNET.ADMIN_NETWORK: {"in": "all", "out": "all"}
             },
-            SUBNET.INTERNET: {
-                SUBNET.RESTRICTED_ZONE_A: {"in": "all", "out": "all"},
-                SUBNET.OPERATIONAL_ZONE_A: {"in": "all", "out": "all"},
-                SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "all"},
-                SUBNET.OPERATIONAL_ZONE_B: {"in": "all", "out": "all"},
-                SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"},
-                SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
-                SUBNET.ADMIN_NETWORK: {"in": "all", "out": "all"},
-                SUBNET.OFFICE_NETWORK: {"in": "all", "out": "all"}
-            }
+            # Cloud in the Middle, gets in/out everything - Keep this as is (?)
+            # SUBNET.INTERNET: {
+            #     SUBNET.RESTRICTED_ZONE_A: {"in": "all", "out": "all"},
+            #     SUBNET.OPERATIONAL_ZONE_A: {"in": "all", "out": "all"},
+            #     SUBNET.RESTRICTED_ZONE_B: {"in": "all", "out": "all"},
+            #     SUBNET.OPERATIONAL_ZONE_B: {"in": "all", "out": "all"},
+            #     SUBNET.CONTRACTOR_NETWORK: {"in": "all", "out": "all"},
+            #     SUBNET.PUBLIC_ACCESS_ZONE: {"in": "all", "out": "all"},
+            #     SUBNET.ADMIN_NETWORK: {"in": "all", "out": "all"},
+            #     SUBNET.OFFICE_NETWORK: {"in": "all", "out": "all"}
+            # }
         }
         # Create subnets in a list that can be iterated over
         scenario_subnets = {}
         for subnet_name in SUBNET:
-            nacl = subnet_nacls[subnet_name]
-            subnet = self._generate_subnet(subnet_name.value, nacl, network_subnets)
-            scenario_subnets[subnet_name] = subnet
+            if subnet_name is not SUBNET.INTERNET:
+                
+                nacl = subnet_nacls[subnet_name]
+                subnet = self._generate_subnet(subnet_name.value, nacl, network_subnets)
+                scenario_subnets[subnet_name] = subnet
         return scenario_subnets
 
     def _generate_subnet(self, subnet_name: str, nacls: Dict[str, Dict[str, str]],
@@ -366,19 +377,28 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
                     The parent data link
                 """
         if hostname == "root_internet_host_0":
-            data_links = ['restricted_zone_a_subnet_router',
-                          'restricted_zone_b_subnet_router',
-                          'contractor_network_subnet_router',
-                          'public_access_zone_subnet_router']
+            # data_links = ['restricted_zone_a_subnet_router',
+            #               'restricted_zone_b_subnet_router',
+            #               'contractor_network_subnet_router',
+            #               'public_access_zone_subnet_router']
+            data_links = []
         elif "_router" in hostname:
             if 'restricted_zone_a' in hostname:
-                data_links = ["root_internet_host_0", "operational_zone_a_subnet_router"]
+                #data_links = ["root_internet_host_0", "operational_zone_a_subnet_router"]
+                data_links = ["public_access_zone_subnet_router", "operational_zone_a_subnet_router"]
             elif 'restricted_zone_b' in hostname:
-                data_links = ["root_internet_host_0", "operational_zone_b_subnet_router"]
+                #data_links = ["root_internet_host_0", "operational_zone_b_subnet_router"]
+                data_links = ["public_access_zone_subnet_router", "operational_zone_b_subnet_router"]
             elif 'contractor' in hostname:
-                data_links = ["root_internet_host_0"]
+                #data_links = ["root_internet_host_0"]
+                data_links = ["public_access_zone_subnet_router"]
             elif 'public_access' in hostname:
-                data_links = ["root_internet_host_0",
+                # data_links = ["root_internet_host_0",
+                #               "admin_network_subnet_router",
+                #               "office_network_subnet_router"]
+                data_links = ["restricted_zone_a_subnet_router",
+                              "restricted_zone_b_subnet_router",
+                              "contractor_network_subnet_router",
                               "admin_network_subnet_router",
                               "office_network_subnet_router"]
             elif 'operational_zone_a' in hostname:
@@ -410,20 +430,22 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
         """
         links = {
             "contractor_network_subnet_server_host_0": [
-                "restricted_zone_a_subnet_server_host_0",
-                "restricted_zone_b_subnet_server_host_0",
-                "public_access_zone_subnet_server_host_0",
+                #"restricted_zone_a_subnet_server_host_0",
+                #"restricted_zone_b_subnet_server_host_0",
+                "public_access_zone_subnet_server_host_0"
                 ],
             "restricted_zone_a_subnet_server_host_0": [
                 "operational_zone_a_subnet_server_host_0",
-                "contractor_network_subnet_server_host_0"
+                "public_access_zone_subnet_server_host_0"
+                #"contractor_network_subnet_server_host_0"
             ],
             "operational_zone_a_subnet_server_host_0": [
                 "restricted_zone_a_subnet_server_host_0"
             ],
             "restricted_zone_b_subnet_server_host_0": [
                 "operational_zone_b_subnet_server_host_0",
-                "contractor_network_subnet_server_host_0"
+                "public_access_zone_subnet_server_host_0"
+                #"contractor_network_subnet_server_host_0"
             ],
             "operational_zone_b_subnet_server_host_0": [
                 "restricted_zone_b_subnet_server_host_0"
@@ -431,7 +453,10 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             "public_access_zone_subnet_server_host_0": [
                 "admin_network_subnet_server_host_0",
                 "office_network_subnet_server_host_0",
-                "contractor_network_subnet_server_host_0"
+                "contractor_network_subnet_server_host_0",
+                ##
+                "restricted_zone_a_subnet_server_host_0",
+                "restricted_zone_b_subnet_server_host_0"
             ],
             "admin_network_subnet_server_host_0": [
                 "public_access_zone_subnet_server_host_0"

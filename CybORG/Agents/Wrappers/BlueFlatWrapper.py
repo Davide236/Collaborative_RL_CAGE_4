@@ -283,7 +283,6 @@ class BlueFlatWrapper(BlueFixedActionWrapper):
             ("restricted_zone_a_subnet", "operational_zone_a_subnet"),
             ("restricted_zone_b_subnet", "operational_zone_b_subnet"),
         ))
-
         if mission == "MissionA":
             network.remove_edges_from((
                 ("restricted_zone_a_subnet", "operational_zone_a_subnet"),
