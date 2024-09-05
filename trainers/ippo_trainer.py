@@ -69,7 +69,7 @@ class PPOTrainer:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
-
+                
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
