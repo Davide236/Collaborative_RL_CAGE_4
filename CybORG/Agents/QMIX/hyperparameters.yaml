@@ -5,5 +5,5 @@ start_epsilon: 1
 end_epsilon: 0.01
 update_interval: 10
 fc: 256
-exploration: 'greedy'
+exploration: 'Bolzman' # 'greedy'
 message_type: 'simple' #'8_bits' # 'action', '2_bits'
