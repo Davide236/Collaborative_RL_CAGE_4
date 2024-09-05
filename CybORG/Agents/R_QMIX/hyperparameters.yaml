@@ -1,0 +1,9 @@
+gamma: 0.99
+lr: 2.5e-4
+grad_norm_clip: 0.5
+start_epsilon: 1
+end_epsilon: 0.01
+update_interval: 10
+fc: 256
+exploration: 'Bolzman' # 'greedy'
+message_type: 'simple' #'8_bits' # 'action', '2_bits'

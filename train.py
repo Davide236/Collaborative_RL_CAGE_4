@@ -6,6 +6,7 @@ from trainers.mappo_trainer import MAPPOTrainer
 from trainers.qmix_trainer import QMIXTrainer
 from trainers.r_ippo_trainer import RecurrentIPPOTrainer
 from trainers.r_mappo_trainer import RecurrentMAPPOTrainer
+from trainers.r_qmix_trainer import R_QMIXTrainer
 from trainers.vdn_trainer import VDNTrainer
 def main():
     # Create the parser
@@ -73,8 +74,8 @@ def main():
     elif method == 'QMIX':
         trainer = QMIXTrainer(args)
         trainer.run()
-    elif method == 'VDN':
-        trainer = VDNTrainer(args)
+    elif method == 'R_QMIX':
+        trainer = R_QMIXTrainer(args)
         trainer.run()
     else:
         trainer = PPOTrainer(args)
