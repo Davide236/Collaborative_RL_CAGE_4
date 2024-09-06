@@ -1,7 +1,11 @@
 import argparse
 from evaluators.ippo_eval import IPPOEvaluator
 from evaluators.mappo_eval import MAPPOEvaluator
-
+from evaluators.r_ippo_eval import R_IPPOEvaluator
+from evaluators.r_mappo_eval import R_MAPPOEvaluator
+from evaluators.qmix_eval import QMIXEvaluator
+from evaluators.r_qmix_eval import R_QMIXEvaluator
+from evaluators.maddpg_eval import MADDPGEvaluator
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Process some input parameters.")
@@ -39,22 +43,22 @@ def main():
     method = args.Method
     print(f'Using method: {method}, loading network: {args.Load_best | args.Load_last}, Using messages: {args.Messages}')
     if method == 'R_IPPO':
-        trainer = IPPOEvaluator(args)
+        trainer = R_IPPOEvaluator(args)
         trainer.run()
     elif method == 'R_MAPPO':
-        trainer = IPPOEvaluator(args)
+        trainer = R_MAPPOEvaluator(args)
         trainer.run()
     elif method == 'MAPPO':
         trainer = MAPPOEvaluator(args)
         trainer.run()
     elif method == 'MADDPG':
-        trainer = IPPOEvaluator(args)
+        trainer = MADDPGEvaluator(args)
         trainer.run()
     elif method == 'QMIX':
-        trainer = IPPOEvaluator(args)
+        trainer = QMIXEvaluator(args)
         trainer.run()
-    elif method == 'VDN':
-        trainer = IPPOEvaluator(args)
+    elif method == 'R_QMIX':
+        trainer = R_QMIXEvaluator(args)
         trainer.run()
     else:
         trainer = IPPOEvaluator(args)

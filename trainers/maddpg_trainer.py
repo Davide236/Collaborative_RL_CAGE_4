@@ -39,8 +39,6 @@ class MADDPGTrainer:
         for agent in range(n_agents):
             actor_dims.append(self.env.observation_space(f'blue_agent_{agent}').shape[0])
             agents_actions.append(len(self.env.get_action_space(f'blue_agent_{agent}')['actions']))
-        print(actor_dims)
-        print(agents_actions)
         critic_dims = sum(actor_dims)
         agents = MADDPG(actor_dims, critic_dims, n_agents, agents_actions,self.messages)
         memory = ReplayBuffer(

@@ -40,27 +40,27 @@ class QMix():
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
         for number, network in enumerate(self.agent_networks):
-            checkpoint = os.path.join(f'last_networks/qmix/{self.message_type}', f'qmix_{number}')
+            checkpoint = os.path.join(f'last_networks/r_qmix/{self.message_type}', f'qmix_{number}')
             checkpoint = torch.load(checkpoint)
-            network.load_state_dict(torch.load(checkpoint['network_state_dict']))
-            self.agent_optimizers[number].load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
+            network.load_state_dict(checkpoint['network_state_dict'])
+            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])
             self.target_agent_networks[number].load_state_dict(network.state_dict())
-        checkpoint = os.path.join(f'last_networks/qmix/{self.message_type}', f'mixer')
+        checkpoint = os.path.join(f'last_networks/r_qmix/{self.message_type}', f'mixer')
         checkpoint = torch.load(checkpoint)
-        self.qmix_net_eval.load_state_dict(torch.load(checkpoint['network_state_dict']))
-        self.mixing_optimizer.load_state_dict(torch.load(checkpoint['optimizer_state_dict']))
+        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])
+        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
 
     # Load both actor and critic network of the agent
     def load_network(self):
         print('Loading Networks......')
         for number, network in enumerate(self.agent_networks):
-            checkpoint = os.path.join(f'saved_networks/qmix/{self.message_type}', f'qmix_{number}')
+            checkpoint = os.path.join(f'saved_networks/r_qmix/{self.message_type}', f'qmix_{number}')
             checkpoint = torch.load(checkpoint)
             network.load_state_dict(checkpoint['network_state_dict'])
             self.target_agent_networks[number].load_state_dict(network.state_dict())
             self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])
-        checkpoint = os.path.join(f'saved_networks/qmix/{self.message_type}', f'mixer')
+        checkpoint = os.path.join(f'saved_networks/r_qmix/{self.message_type}', f'mixer')
         checkpoint = torch.load(checkpoint)
         self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])
         self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
