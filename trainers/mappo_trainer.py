@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import os
 import yaml
-from utils import save_statistics, save_agent_data_ppo, save_agent_network
+from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
 class MAPPOTrainer:
     EPISODE_LENGTH = 500
@@ -90,6 +90,7 @@ class MAPPOTrainer:
 
     def run(self):
         self.initialize_environment()
+        reward_normalizer = RewardNormalizer()
         for i in range(self.MAX_EPS):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
@@ -119,7 +120,7 @@ class MAPPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward[agent_name], done, observations_list)
+                    agent.memory.save_end_episode(reward_normalizer.normalize(reward[agent_name]), done, observations_list)
                 # This terminates if all agents have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
