@@ -3,12 +3,13 @@ from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.IPPO.ippo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
+from statistics import mean
 
 from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
-
+# Trainer Class for the IPPO algorithm
 class PPOTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
 
     def __init__(self, args):
@@ -29,15 +30,17 @@ class PPOTrainer:
                                          green_agent_class=EnterpriseGreenAgent,
                                          red_agent_class=FiniteStateRedAgent,
                                          steps=self.EPISODE_LENGTH)
-        cyborg = CybORG(scenario_generator=sg, seed=1)  # Add Seed
+        cyborg = CybORG(scenario_generator=sg, seed=1)  # Add Seed for consistency
         env = BlueFlatWrapper(env=cyborg)
         env.reset()
         self.env = env
+        # Initialize IPPO agents
         self.agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0],
                                                   len(env.get_action_space(f'blue_agent_{agent}')['actions']),
                                                   self.max_eps*self.EPISODE_LENGTH, agent, self.messages) 
                        for agent in range(5)}
         print(f'Using agents {self.agents}')
+        # Load network functions
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
@@ -54,7 +57,7 @@ class PPOTrainer:
             r = []
             for j in range(self.EPISODE_LENGTH):  # Episode length
                 self.count += 1
-                # Action selection for all agents
+                # Action and Message selection for all agents
                 actions_messages = {
                     agent_name: agent.get_action(
                         observations[agent_name]
@@ -62,9 +65,11 @@ class PPOTrainer:
                     for agent_name, agent in self.agents.items()
                     if agent_name in self.env.agents
                 }
+                # Decouple actions and messages
                 actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
 
+                # Get intrinsic rewards from the NGU module
                 intrinsic_rewards = {
                     agent_name: agent.get_exploration_reward(
                         observations[agent_name]
@@ -72,7 +77,6 @@ class PPOTrainer:
                     for agent_name, agent in self.agents.items()
                     if agent_name in self.env.agents
                 }
-                print(messages)
                 # Perform action on the environment
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
@@ -82,7 +86,7 @@ class PPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    # Intrinsic Rew
+                    # Save data to the agents memory
                     agent.memory.save_end_episode(reward_normalizer.normalize(reward[agent_name]),intrinsic_rewards[agent_name], done)
                 # This terminates if all agent have 'termination=true'
                 done = {
@@ -117,6 +121,7 @@ class PPOTrainer:
                 if (i+1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count) 
+        # Save network and statistics of the training
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)

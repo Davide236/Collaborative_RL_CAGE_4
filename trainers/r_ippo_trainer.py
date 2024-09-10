@@ -3,12 +3,13 @@ from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.R_IPPO.ppo import PPO
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
+from statistics import mean
 from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
 
-
+# Trainer Class for the Recurrent version of the IPPO algorithm
 class RecurrentIPPOTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
 
     def __init__(self, args):
@@ -25,7 +26,8 @@ class RecurrentIPPOTrainer:
         self.count = 0  # Keep track of total episodes
         self.rollout = args.Rollout
         self.max_eps = args.Episodes
-
+    
+    # Initialize the agents
     def setup_agents(self, env):
         agents = {f"blue_agent_{agent}": PPO(
             env.observation_space(f'blue_agent_{agent}').shape[0],
@@ -47,6 +49,7 @@ class RecurrentIPPOTrainer:
         self.env.reset()
         self.agents = self.setup_agents(self.env)
         print(f'Using agents {self.agents}')
+        # Load previously saved agents
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
@@ -60,6 +63,7 @@ class RecurrentIPPOTrainer:
         for i in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
+            # Reset the initial state of the recurrent network
             for agent_name, agent in self.agents.items():
                 agent.set_initial_state(1)
             r = []
@@ -115,6 +119,7 @@ class RecurrentIPPOTrainer:
                 if (i + 1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
+        # Save all the data of the training
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)

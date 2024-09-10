@@ -4,14 +4,15 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.QMIX.qmix import QMix
 from CybORG.Agents.QMIX.buffer import ReplayBuffer
-from statistics import mean, stdev
+from statistics import mean
 import os
 import matplotlib.pyplot as plt
 from utils import save_statistics, save_agent_data_mixer, save_agent_network, RewardNormalizer
 
 
-
+# Trainer Class for the QMIX algorithm
 class QMIXTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
     
     def __init__(self, args):
@@ -29,7 +30,8 @@ class QMIXTrainer:
         self.messages = args.Messages
         self.rollout = args.Rollout
         self.max_eps = args.Episodes
-
+    
+    # Initialize the QMIX agents and memory buffer in the environment
     def setup_agents(self, env):
         n_agents = 5
         actor_dims = []
@@ -39,6 +41,7 @@ class QMIXTrainer:
             actor_dims.append(env.observation_space(f'blue_agent_{agent}').shape[0])
             agents_actions.append(len(env.get_action_space(f'blue_agent_{agent}')['actions']))
         critic_dims = sum(actor_dims)
+        # Initialize QMIX agents
         agents = QMix(
             n_agents=n_agents,
             n_actions=agents_actions,
@@ -48,6 +51,7 @@ class QMIXTrainer:
             total_episodes=self.EPISODE_LENGTH,
             messages = self.messages
         )
+        # Initialize memory buffer
         memory = ReplayBuffer(
             1_000_000,
             actor_dims,
@@ -55,8 +59,8 @@ class QMIXTrainer:
             episode_length=self.EPISODE_LENGTH - 1
         )
         return agents, memory
-
-    @staticmethod
+    
+    # Transform the way observations are stored
     def transform_observations(obs):
         observations = []
         for i in range(5):
@@ -77,6 +81,7 @@ class QMIXTrainer:
         self.env = env
         self.agents, self.memory = self.setup_agents(env)
         print(f'Using agents {self.agents}')
+        # Load previously saved agents
         if self.load_best_network:
             self.agents.load_network()
         if self.load_last_network:
@@ -114,14 +119,16 @@ class QMIXTrainer:
                 obs1 = self.transform_observations(observations)
                 obs2 = self.transform_observations(new_observations)
                 reward2 = self.transform_observations(reward)
-                # This terminates if all agents have 'termination=true'
+                # Store the data of a single episode in the buffer
                 self.memory.store_episodic(obs1, acts, reward2, obs2, done, step=j)
                 observations = new_observations
+                # This terminates if all agents have 'termination=true'
                 if all(done):
                     break
                 r.append(mean(reward.values()))  # Add rewards
             self.partial_rewards += sum(r)
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {self.partial_rewards / (eps + 1)}")
+            # Save the agents if we achieved a best reward
             if sum(r) > self.best_reward:
                 self.best_reward = sum(r)
                 for number, network in enumerate(self.agents.agent_networks):
@@ -132,12 +139,14 @@ class QMIXTrainer:
             # Add to partial rewards
             self.total_rewards.append(sum(r))
             self.memory.append_episodic()
+            # If the memory has enough data, perform a training run
             if self.memory.ready():
                 print("Training...")
                 sample, indices, _ = self.memory.sample(self.rollout)
                 self.training_steps += 1
                 td_errors = self.agents.train(sample, self.training_steps)
                 self.memory.set_priorities(indices, td_errors)
+        # Save all data of the training
         for number, network in enumerate(self.agents.agent_networks):
             save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
             save_agent_network(network, self.agents.agent_optimizers[number], save_path)

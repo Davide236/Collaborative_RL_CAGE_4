@@ -4,14 +4,16 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.MAPPO.mappo import PPO
 from CybORG.Agents.MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
+from statistics import mean
 import numpy as np
 import torch
 import os
 import yaml
 from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
+# Trainer Class for the MAPPO algorithm
 class MAPPOTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
 
     def __init__(self, args):
@@ -28,8 +30,8 @@ class MAPPOTrainer:
         self.messages = args.Messages
         self.rollout = args.Rollout
         self.max_eps = args.Episodes
-
-    @staticmethod
+    
+    # Concatenate the observations of different agents to obtain a global state
     def concatenate_observations(observations, agents):
         observation_list = []
         for agent_name, agent in agents.items():
@@ -38,7 +40,7 @@ class MAPPOTrainer:
         state = torch.FloatTensor(normalized_state.reshape(1, -1))
         return state
 
-    @staticmethod
+    # Initialize the global critic network for the agents
     def initialize_critic(env):
         config_file_path = os.path.join(os.path.dirname(__file__), '../CybORG/Agents/MAPPO/hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
@@ -46,6 +48,7 @@ class MAPPOTrainer:
         lr = float(params.get('lr', 2.5e-4))
         eps = float(params.get('eps', 1e-5))
         fc = int(params.get('fc', 256))
+        # Initialize the network
         centralized_critic = CriticNetwork(
             env.observation_space('blue_agent_4').shape[0],
             env.observation_space('blue_agent_0').shape[0],
@@ -79,6 +82,7 @@ class MAPPOTrainer:
             ) for agent in range(5)
         }
         print(f'Using agents {self.agents}')
+        # Load previously saved agents
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
@@ -151,6 +155,7 @@ class MAPPOTrainer:
                 if (i + 1) % self.rollout == 0:
                     print(f"Policy update for {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
+        # Save all of the obtained training data
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.last_checkpoint_file_actor)

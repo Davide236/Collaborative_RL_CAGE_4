@@ -2,7 +2,7 @@ from CybORG import CybORG
 from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
+from statistics import mean
 from CybORG.Agents.MADDPG.maddpg import MADDPG
 from CybORG.Agents.MADDPG.replay_buffer import ReplayBuffer
 
@@ -10,10 +10,10 @@ import csv
 import matplotlib.pyplot as plt
 from utils import save_statistics, save_agent_data_maddpg, save_agent_network
 
-
+# Trainer Class for the MADDPG algorithm
 class MADDPGTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
-    MAX_EPS = 1500
     LOAD_NETWORKS = False
     LOAD_BEST = False
     ROLLOUT = 10
@@ -30,17 +30,20 @@ class MADDPGTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.max_eps = args.Episodes
 
     def setup_agents(self):
         n_agents = 5
         actor_dims = []
         agents_actions = []
-        # Dimension of observation_space (for each agent)
+        # Dimension of observation_space and action space (for each agent)
         for agent in range(n_agents):
             actor_dims.append(self.env.observation_space(f'blue_agent_{agent}').shape[0])
             agents_actions.append(len(self.env.get_action_space(f'blue_agent_{agent}')['actions']))
         critic_dims = sum(actor_dims)
+        # Initialize MADDPG agents
         agents = MADDPG(actor_dims, critic_dims, n_agents, agents_actions,self.messages)
+        # Initialize replay buffer
         memory = ReplayBuffer(
             2000,
             actor_dims,
@@ -48,15 +51,15 @@ class MADDPGTrainer:
             episode_length=self.EPISODE_LENGTH - 1
         )
         return agents, memory
-
-    @staticmethod
+    
+    # Transform the observations in an array format
     def transform_observations(obs):
         observations = []
         for i in range(5):
             observations.append(obs[f'blue_agent_{i}'])
         return observations
-
-    @staticmethod
+    
+    # Function used to concatenate the observation of the different agents into a singular global observation vector
     def concatenate_observations(observations):
         observations_list = []
         for i in range(5):
@@ -75,6 +78,7 @@ class MADDPGTrainer:
         self.env = env
         self.agents, self.memory = self.setup_agents()
         print(f'Using agents {self.agents}')
+        # Load previously saved agents' networks
         if self.load_best_network:
             for agent in self.agents.agents:
                 agent.load_network()
@@ -84,7 +88,7 @@ class MADDPGTrainer:
 
     def run(self):
         self.initialize_environment()
-        for eps in range(self.MAX_EPS):
+        for eps in range(self.max_eps):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             r = []
@@ -115,9 +119,10 @@ class MADDPGTrainer:
                 obs1 = self.transform_observations(observations)
                 obs2 = self.transform_observations(new_observations)
                 reward2 = self.transform_observations(reward)
-                # This terminates if all agents have 'termination=true'
+                # Store all the episodic data in the buffer
                 self.memory.store_episodic(obs1, acts, reward2, obs2, done, old_central_observations, new_central_observations, step=j)
                 observations = new_observations
+                # This terminates if all agents have 'termination=true'
                 if all(done):
                     break
                 r.append(mean(reward.values()))  # Add rewards  
@@ -131,10 +136,12 @@ class MADDPGTrainer:
             # Add to partial rewards  
             self.total_rewards.append(sum(r))
             self.memory.append_episodic()
+            # If the memory has enough episodes then perform a training run
             if self.memory.ready():
                 sample, indices, importance = self.memory.sample(self.ROLLOUT)
                 td_errors = self.agents.learn(sample)
                 self.memory.set_priorities(indices, td_errors)
+        # Save all the data of the training
         for agent in self.agents.agents:
             save_agent_network(agent.actor, agent.actor.optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.critic, agent.critic.optimizer, agent.last_checkpoint_file_critic)

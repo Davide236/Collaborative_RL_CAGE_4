@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Ask the user for the number of files
+# Ask for the number of files
 num_files = int(input("Enter the number of reward files to load: "))
 
 # Initialize lists to store data, averages, and rolling averages
@@ -11,7 +11,7 @@ averages_list = []
 rolling_averages_list = []
 labels = []
 
-# Load each file dynamically and calculate averages
+# Load each file dynamically and calculate averages (the files are loaded in order in rewards.csv files) [rewards.csv, rewards1.csv, rewards2.csv etc.]
 for i in range(1, num_files + 1):
     file_name = f'../rewards{i}.csv' if i > 1 else '../rewards.csv'
     label = input(f"Enter label for file {file_name}: ")

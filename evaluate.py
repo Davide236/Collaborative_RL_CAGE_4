@@ -6,6 +6,8 @@ from evaluators.r_mappo_eval import R_MAPPOEvaluator
 from evaluators.qmix_eval import QMIXEvaluator
 from evaluators.r_qmix_eval import R_QMIXEvaluator
 from evaluators.maddpg_eval import MADDPGEvaluator
+
+# File made to evaluate different trained RL algorithms
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Process some input parameters.")
@@ -38,6 +40,7 @@ def main():
         default=False,
         help='Boolean flag for loading the best saved network (default: False)'
     )
+
     # Parse the arguments
     args = parser.parse_args()
     method = args.Method

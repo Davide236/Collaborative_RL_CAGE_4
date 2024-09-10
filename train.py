@@ -8,6 +8,7 @@ from trainers.r_ippo_trainer import RecurrentIPPOTrainer
 from trainers.r_mappo_trainer import RecurrentMAPPOTrainer
 from trainers.r_qmix_trainer import R_QMIXTrainer
 
+# File made to train different RL algorithms on the CybORG environment
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Process some input parameters.")

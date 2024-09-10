@@ -4,14 +4,15 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.R_QMIX.qmix import QMix
 from CybORG.Agents.R_QMIX.buffer import ReplayBuffer
-from statistics import mean, stdev
+from statistics import mean
 import os
 import matplotlib.pyplot as plt
 from utils import save_statistics, save_agent_data_mixer, save_agent_network, RewardNormalizer
 
 
-
+# Trainer Class for the Recurrent version of the QMIX algorithm
 class R_QMIXTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
     
     def __init__(self, args):
@@ -56,7 +57,6 @@ class R_QMIXTrainer:
         )
         return agents, memory
 
-    @staticmethod
     def transform_observations(obs):
         observations = []
         for i in range(5):
@@ -139,6 +139,7 @@ class R_QMIXTrainer:
                 self.training_steps += 1
                 td_errors = self.agents.train(sample, self.training_steps)
                 self.memory.set_priorities(indices, td_errors)
+        # Save all of the obtained training data
         for number, network in enumerate(self.agents.agent_networks):
             save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
             save_agent_network(network, self.agents.agent_optimizers[number], save_path)

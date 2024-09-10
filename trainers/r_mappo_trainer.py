@@ -4,7 +4,7 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.R_MAPPO.r_mappo import PPO
 from CybORG.Agents.R_MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
+from statistics import mean
 import numpy as np
 import torch
 import yaml
@@ -12,8 +12,9 @@ import os
 from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
 
 
-
+# Trainer Class for the Recurrent version of the MAPPO algorithm
 class RecurrentMAPPOTrainer:
+    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
 
     def __init__(self, args):
@@ -34,6 +35,7 @@ class RecurrentMAPPOTrainer:
         self.centralized_critic = None
         self.critic_optimizer = None
 
+    # Concatenate the singular observations to make a global observation space for the centralized critic
     def concatenate_observations(self, observations):
         observation_list = []
         for agent_name in self.agents.keys():
@@ -41,7 +43,8 @@ class RecurrentMAPPOTrainer:
         normalized_state = (observation_list - np.mean(observation_list)) / (np.std(observation_list) + 1e-8)
         state = torch.FloatTensor(normalized_state.reshape(1, -1))
         return state
-
+    
+    # Initialize the global critic network for the agents
     def initialize_critic(self, env):
         config_file_path = os.path.join(os.path.dirname(__file__), '../CybORG/Agents/MAPPO/hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
@@ -54,12 +57,13 @@ class RecurrentMAPPOTrainer:
         message_type = params.get('message_type', 'simple')
         return centralized_critic, critic_optimizer, message_type
 
-
+    # Initialize the checkpoint to save the centralized critic networks and optimizer
     def init_checkpoint(self):
         checkpoint_file_critic = os.path.join('saved_networks', f'r_critic_mappoppo_central')
         last_checkpoint_file_critic = os.path.join('last_networks', f'r_critic_mappo_central')
         return checkpoint_file_critic, last_checkpoint_file_critic
-
+    
+    # Setup the MAPPO agents
     def setup_agents(self, env):
         agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0], len(env.get_action_space(f'blue_agent_{agent}')['actions']), self.max_eps * self.EPISODE_LENGTH, agent, self.centralized_critic, self.critic_optimizer, self.messages) for agent in range(5)}
         return agents
@@ -80,6 +84,7 @@ class RecurrentMAPPOTrainer:
         self.last_checkpoint_file_critic = os.path.join(f'last_networks\mappo\{self.message_type}', f'critic_ppo_central')
         self.agents = self.setup_agents(self.env)
         print(f'Using agents {self.agents}')
+        # Load previously trained agents
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
@@ -159,6 +164,7 @@ class RecurrentMAPPOTrainer:
                 if (i + 1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
+        # Save all of the obtained training data
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)
