@@ -7,3 +7,4 @@ update_interval: 10
 fc: 256
 exploration: 'Bolzman' # 'greedy'
 message_type: '8_bits' #'8_bits' # 'action', '2_bits'
+lr_anneal: 'linear'

@@ -102,6 +102,7 @@ class PPO:
         self.hidden_size = int(params.get('hidden_size', 256))
         self.target_kl = float(params.get('target_kl', 0.02))
         self.message_type = params.get('message_type', 'action')
+        self.anneal_type = params.get('lr_anneal', 'linear')
         self.max_episodes = episodes
 
 
@@ -110,21 +111,34 @@ class PPO:
     def set_initial_state(self, workers):
         self.actor.get_init_state(workers)
         self.critic.get_init_state(workers)
-        
+    
+
     def anneal_lr(self, steps):
         """
-        Args: None
-
+        Args: 
+            steps: Current step or episode number
+    
         Returns: None
 
         Explanation: Decrease the learning rate through the episodes 
-                    to promote eploitation over exploration
+                to promote exploitation over exploration.
         """
-        frac = (steps-1)/self.max_episodes
-        new_lr = self.lr * (1-frac)
+        frac = (steps - 1) / self.max_episodes
+    
+        if self.anneal_type == "linear":
+            # Linear annealing: Decrease the learning rate linearly
+            new_lr = self.lr * (1 - frac)
+        else:
+            # Exponential annealing: Decrease the learning rate exponentially
+            new_lr = self.lr * (self.min_lr / self.lr) ** frac
+        
+        # Ensure that learning rate does not go below the minimum learning rate
         new_lr = max(new_lr, self.min_lr)
+    
+        # Update the learning rates in the optimizers
         self.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.critic_optimizer.param_groups[0]["lr"] = new_lr
+        
     
     # Function which performs an evaluation (with the latest hidden states) of a list of state values and actions probabilities
     # given a history of observations and actions saved during rollout

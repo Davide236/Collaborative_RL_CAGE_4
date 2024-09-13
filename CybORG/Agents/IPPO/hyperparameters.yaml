@@ -11,3 +11,4 @@ minibatch_number: 1
 target_kl: 0.02
 fc: 256
 message_type: 'simple'
+lr_anneal: 'linear'

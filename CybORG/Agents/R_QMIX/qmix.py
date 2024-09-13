@@ -83,6 +83,7 @@ class QMix():
         self.update_interval = int(params.get('update_interval', 10))
         self.message_type = params.get('message_type', 'simple')
         self.exploration = params.get('exploration', 'greedy')
+        self.anneal_type = params.get('lr_anneal', 'linear')
         self.training_steps = 0
         self.decay_steps = total_episodes*0.8 # Training Steps in which it takes to decay
     
@@ -91,6 +92,33 @@ class QMix():
         epsilon = self.end_epsilon + (self.start_epsilon - self.end_epsilon) * math.exp(-self.training_steps / self.decay_steps)
         return epsilon
     
+    def anneal_lr(self):
+        """
+        Args: 
+            steps: Current step or episode number
+    
+        Returns: None
+
+        Explanation: Decrease the learning rate through the episodes 
+                to promote exploitation over exploration.
+        """
+        steps = self.training_steps
+        frac = (steps - 1) / self.decay_steps
+    
+        if self.anneal_type == "linear":
+            # Linear annealing: Decrease the learning rate linearly
+            new_lr = self.lr * (1 - frac)
+        else:
+            # Exponential annealing: Decrease the learning rate exponentially
+            new_lr = self.lr * (self.min_lr / self.lr) ** frac
+        
+        # Ensure that learning rate does not go below the minimum learning rate
+        new_lr = max(new_lr, self.min_lr)
+    
+        # Update the learning rates in the optimizers'
+        for optimizer in self.agent_optimizers:
+            optimizer.param_groups[0]["lr"] = new_lr
+        self.mixing_optimizer.param_groups[0]["lr"] = new_lr
     
     def reset_hidden_layer(self):
         for network in self.agent_networks:
@@ -175,6 +203,7 @@ class QMix():
         if count % self.update_interval:
             self.update_target_networks()
         self.loss.append(loss.item())
+        self.anneal_lr()
         return pred_diff_arr
         
         
