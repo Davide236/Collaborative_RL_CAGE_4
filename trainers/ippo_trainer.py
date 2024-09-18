@@ -72,7 +72,7 @@ class PPOTrainer:
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Add the global reward (scaled) to the individual reward of each agent
-                extra_reward = reward['blue_agent_0'][5]*0.2
+                extra_reward = reward['blue_agent_0'][5]*0.8
                 reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
