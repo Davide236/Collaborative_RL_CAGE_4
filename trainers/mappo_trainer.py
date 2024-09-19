@@ -32,7 +32,7 @@ class MAPPOTrainer:
         self.max_eps = args.Episodes
     
     # Concatenate the observations of different agents to obtain a global state
-    def concatenate_observations(observations, agents):
+    def concatenate_observations(self, observations, agents):
         observation_list = []
         for agent_name, agent in agents.items():
             observation_list.extend(observations[agent_name])
@@ -41,7 +41,7 @@ class MAPPOTrainer:
         return state
 
     # Initialize the global critic network for the agents
-    def initialize_critic(env):
+    def initialize_critic(self, env):
         config_file_path = os.path.join(os.path.dirname(__file__), '../CybORG/Agents/MAPPO/hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
             params = yaml.safe_load(file)
