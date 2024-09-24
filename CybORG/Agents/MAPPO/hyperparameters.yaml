@@ -12,4 +12,5 @@ target_kl: 0.02
 fc: 256
 message_type: 'action' #'2_bits'
 lr_anneal: 'linear'
+global_state: 'compact'
 

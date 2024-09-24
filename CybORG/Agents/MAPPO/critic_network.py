@@ -4,11 +4,11 @@ import os
 from torch.distributions import Categorical
 
 class CriticNetwork(nn.Module):
-    def __init__(self, large_state_dim,small_state_dim, n_agents, lr, eps, fc):
+    def __init__(self, state_dim, lr, eps, fc):
         super(CriticNetwork, self).__init__()
         # Width of the network
         self.fc = fc
-        self.state_dim = large_state_dim + (small_state_dim)*(n_agents-1)
+        self.state_dim = state_dim
         # Initialize critc network
         self.critic = nn.Sequential(
             nn.Linear(self.state_dim, fc),

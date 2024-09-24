@@ -61,7 +61,7 @@ class QMIXTrainer:
         return agents, memory
     
     # Transform the way observations are stored
-    def transform_observations(obs):
+    def transform_observations(self, obs):
         observations = []
         for i in range(5):
             observations.append(obs[f'blue_agent_{i}'])

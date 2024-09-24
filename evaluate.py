@@ -10,7 +10,7 @@ from evaluators.maddpg_eval import MADDPGEvaluator
 # File made to evaluate different trained RL algorithms
 def main():
     # Create the parser
-    parser = argparse.ArgumentParser(description="Process some input parameters.")
+    parser = argparse.ArgumentParser(description="Process input parameters for method evaluation")
 
     # Add arguments
     parser.add_argument(
@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         '--Load_last',
         type=bool,
-        default=True,
+        default=False,
         help='Boolean flag for loading the last saved network (default: False)'
     )
 

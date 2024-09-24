@@ -4,17 +4,17 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.MAPPO.mappo import PPO
 from CybORG.Agents.MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean
+from statistics import mean, stdev
 import numpy as np
 import torch
 import os
 import yaml
-from utils import save_statistics, save_agent_data_ppo, save_agent_network, RewardNormalizer
+from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
-# Trainer Class for the MAPPO algorithm
 class MAPPOTrainer:
-    # Standard length of CybORG episode
     EPISODE_LENGTH = 500
+    MAX_EPS = 4000
+    ROLLOUT = 10
 
     def __init__(self, args):
         self.env = None
@@ -28,31 +28,47 @@ class MAPPOTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
-        self.rollout = args.Rollout
-        self.max_eps = args.Episodes
-    
-    # Concatenate the observations of different agents to obtain a global state
-    def concatenate_observations(self, observations, agents):
+
+    @staticmethod
+    def concatenate_observations(observations, agents):
+        #print(f'Concatenating Observations: {observations}')
         observation_list = []
+        messages_1_4 = []
+        messages_0 = []
+        mission_phase = 0
         for agent_name, agent in agents.items():
-            observation_list.extend(observations[agent_name])
+            if agent_name == 'blue_agent_0':
+                mission_phase = observations[agent_name][0]
+                messages_1_4 = observations[agent_name][-32:]
+            elif agent_name == 'blue_agent_1':
+                message_chunk = observations[agent_name][-32:]
+                messages_0 = message_chunk[:8]
+            observation_list.extend(observations[agent_name][1:-32])
+        # Add the mission phase
+        observation_list.insert(0,mission_phase)
+        # Add the messages list
+        observation_list.extend(messages_0)
+        observation_list.extend(messages_1_4)
+        # Normalize the array
         normalized_state = (observation_list - np.mean(observation_list)) / (np.std(observation_list) + 1e-8)
         state = torch.FloatTensor(normalized_state.reshape(1, -1))
         return state
 
-    # Initialize the global critic network for the agents
-    def initialize_critic(self, env):
+    @staticmethod
+    def initialize_critic(env):
         config_file_path = os.path.join(os.path.dirname(__file__), '../CybORG/Agents/MAPPO/hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
             params = yaml.safe_load(file)
         lr = float(params.get('lr', 2.5e-4))
         eps = float(params.get('eps', 1e-5))
         fc = int(params.get('fc', 256))
-        # Initialize the network
+        global_state = params.get('global_state', 'standard')
+        if global_state == 'standard':
+            state_dim = env.observation_space('blue_agent_4').shape[0] + (env.observation_space('blue_agent_0').shape[0])*(5-1)
+        else:
+            state_dim = 454 # TODO: Change this
         centralized_critic = CriticNetwork(
-            env.observation_space('blue_agent_4').shape[0],
-            env.observation_space('blue_agent_0').shape[0],
-            5, lr, eps, fc
+            state_dim, lr, eps, fc
         )
         message_type = params.get('message_type', 'simple')
         return centralized_critic, message_type
@@ -69,20 +85,19 @@ class MAPPOTrainer:
         env.reset()
         self.env = env
         self.centralized_critic, self.message_type = self.initialize_critic(env)
-        self.checkpoint_critic = os.path.join(f'saved_networks\mappo\{self.message_type}', f'critic_ppo_central')
-        self.last_checkpoint_file_critic = os.path.join(f'last_networks\mappo\{self.message_type}', f'critic_ppo_central')
+        self.checkpoint_critic = os.path.join(f'saved_networks/mappo/{self.message_type}', f'critic_ppo_central')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks/mappo/{self.message_type}', f'critic_ppo_central')
         self.agents = {
             f"blue_agent_{agent}": PPO(
                 env.observation_space(f'blue_agent_{agent}').shape[0],
                 len(env.get_action_space(f'blue_agent_{agent}')['actions']),
-                self.max_eps * self.EPISODE_LENGTH,
+                self.MAX_EPS * self.EPISODE_LENGTH,
                 agent,
                 self.centralized_critic,
                 self.messages
             ) for agent in range(5)
         }
         print(f'Using agents {self.agents}')
-        # Load previously saved agents
         if self.load_best_network:
             for _, agent in self.agents.items():
                 agent.load_network()
@@ -94,8 +109,7 @@ class MAPPOTrainer:
 
     def run(self):
         self.initialize_environment()
-        reward_normalizer = RewardNormalizer()
-        for i in range(self.max_eps):
+        for i in range(self.MAX_EPS):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
             r = []
@@ -124,7 +138,7 @@ class MAPPOTrainer:
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward_normalizer.normalize(reward[agent_name]), done, observations_list)
+                    agent.memory.save_end_episode(reward[agent_name], done, observations_list)
                 # This terminates if all agents have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
@@ -137,8 +151,8 @@ class MAPPOTrainer:
             self.total_rewards.append(sum(r))
             print(f"Final reward of the episode: {sum(r)}, length {self.count} - AVG: {mean(self.total_rewards)}")
             # Print average reward before rollout
-            if (i + 1) % self.rollout == 0:
-                avg_rwd = self.partial_rewards / self.rollout
+            if (i + 1) % self.ROLLOUT == 0:
+                avg_rwd = self.partial_rewards / self.ROLLOUT
                 self.average_rewards.append(avg_rwd)
                 print(f"Average reward obtained before update: {avg_rwd}")
                 # If the average reward is better than the best reward then save agents
@@ -152,10 +166,9 @@ class MAPPOTrainer:
             for agent_name, agent in self.agents.items():
                 agent.memory.save_episode()
                 # Every 5 episodes perform a policy update
-                if (i + 1) % self.rollout == 0:
+                if (i + 1) % self.ROLLOUT == 0:
                     print(f"Policy update for {agent_name}. Total steps: {self.count}")
                     agent.learn(self.count)
-        # Save all of the obtained training data
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.last_checkpoint_file_actor)

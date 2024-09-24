@@ -11,7 +11,7 @@ from trainers.r_qmix_trainer import R_QMIXTrainer
 # File made to train different RL algorithms on the CybORG environment
 def main():
     # Create the parser
-    parser = argparse.ArgumentParser(description="Process some input parameters.")
+    parser = argparse.ArgumentParser(description="Process input parameters for agent training")
 
     # Add arguments
     parser.add_argument(

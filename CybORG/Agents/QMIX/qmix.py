@@ -223,7 +223,8 @@ class QMix():
     
 
     def bolzman_exploration(self, q_value, agent_idx):
-        temperature = self.temperature_annealing()
+        #temperature = self.temperature_annealing()
+        temperature = self.end_temperature
         soft = nn.Softmax(dim=-1)
         # In this case the Q_Value is based only on the state
         if agent_idx == 4:

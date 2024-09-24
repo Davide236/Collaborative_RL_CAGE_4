@@ -4,7 +4,7 @@ from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.QMIX.qmix import QMix
 from statistics import mean, stdev
-import os
+import csv
 import matplotlib.pyplot as plt
 from utils import save_statistics, save_agent_data_mixer, save_agent_network
 import re
@@ -12,7 +12,7 @@ import re
 
 class QMIXEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 750
+    MAX_EPS = 500
     def __init__(self, args):
         self.env = None
         self.agents = None
@@ -108,7 +108,8 @@ class QMIXEvaluator:
         env.reset()
         self.env = env
         self.agents = self.setup_agents(env)
-        print(f'Using agents {self.agents}')
+        # TODO: Change this
+        self.load_last_network = False
         if self.load_best_network:
             self.agents.load_network()
         if self.load_last_network:
@@ -178,4 +179,14 @@ class QMIXEvaluator:
             # Add to partial rewards
             self.total_rewards.append(sum(r))
         save_statistics(self.total_rewards, self.total_rewards)
-        save_agent_data_mixer(self.agents)
+        for i in range(self.n_agents):
+            agent_name = f'blue_agent_{i}'
+            csv_filename = f"{agent_name}.csv"
+            with open(csv_filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                # Write header
+                writer.writerow(['Net', 'proc', 'Acts', 'Red_acts'])
+                # Write data rows
+                for data in self.agent_dict[agent_name]:
+                    writer.writerow(data)
+
