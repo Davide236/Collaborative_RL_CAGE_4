@@ -10,7 +10,7 @@ import re
 
 class R_IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 750
+    MAX_EPS = 200
     def __init__(self, args):
         self.n_agents = 5
         self.agents = {}

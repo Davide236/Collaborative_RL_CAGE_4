@@ -39,6 +39,7 @@ class FiniteStateRedAgent(BaseAgent):
         """
         super().__init__(name, np_random)
         self.step = 0
+        self.agent_name = name
         self.action_params = None
         self.last_action = None
         self.host_states = {}
@@ -46,6 +47,8 @@ class FiniteStateRedAgent(BaseAgent):
         self.agent_subnets = agent_subnets
         self.action_list = self.action_list()
 
+
+        self.red_agents_action_list_evaluation = {}####
         self.print_action_output = False
         self.print_obs_output = False
         self.prioritise_servers = False
@@ -122,6 +125,7 @@ class FiniteStateRedAgent(BaseAgent):
             return action
 
     def _host_state_transition(self, action: Action, success):
+        self.red_agents_action_list_evaluation = {}
         """State transition depending on the last action and its success."""
         if not action == None and not success.name == 'IN_PROGRESS':
             action_index = None
@@ -143,7 +147,9 @@ class FiniteStateRedAgent(BaseAgent):
                     for ip in self.host_states.keys():
                         if IPv4Address(ip) in action.subnet:
                             host_ips.append(ip)
-            
+                #print(f'Host IPs: {host_ips}')
+                #print(self.agent_name)
+                host_state = []
                 for host_ip in host_ips:
                     if host_ip in self.host_states.keys():
                         curr_state = self.host_states[host_ip]['state']
@@ -163,8 +169,9 @@ class FiniteStateRedAgent(BaseAgent):
                             # i.e. if something happens that causes the host to be in a state where they cannot perform that action 
                             # (e.g. session removed during action duration, or error), then just use their previous state. 
                             next_state = curr_state
-                            
+                        host_state.append(next_state)    
                         self.host_states[host_ip]['state'] = next_state
+                self.red_agents_action_list_evaluation[self.agent_name] = {'hosts': host_ips, 'state': host_state}
 
     def _session_removal_state_change(self, observation):
         """The changing of state of hosts, where its session has been removed (by Blue)."""

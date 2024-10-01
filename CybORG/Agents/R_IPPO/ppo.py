@@ -63,18 +63,22 @@ class PPO:
     # Load the last saved networks
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
-        self.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor['network_state_dict']))
-        self.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic['network_state_dict']))
-        self.actor_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
-        self.critic_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_critic['optimizer_state_dict']))
+        checkpoint_actor = torch.load(self.last_checkpoint_file_actor)
+        checkpoint_critic = torch.load(self.last_checkpoint_file_critic)
+        self.actor.load_state_dict(checkpoint_actor['network_state_dict'])
+        self.critic.load_state_dict(checkpoint_critic['network_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint_actor['optimizer_state_dict'])
+        self.critic_optimizer.load_state_dict(checkpoint_critic['optimizer_state_dict'])
 
     # Load both actor and critic network of the agent
     def load_network(self):
         print('Loading Networks......')
-        self.actor.load_state_dict(torch.load(self.checkpoint_file_actor['network_state_dict']))
-        self.critic.load_state_dict(torch.load(self.checkpoint_file_critic['network_state_dict']))
-        self.actor_optimizer.load_state_dict(torch.load(self.checkpoint_file_actor['optimizer_state_dict']))
-        self.critic_optimizer.load_state_dict(torch.load(self.checkpoint_file_critic['optimizer_state_dict']))
+        checkpoint_actor = torch.load(self.checkpoint_file_actor)
+        checkpoint_critic = torch.load(self.checkpoint_file_critic)
+        self.actor.load_state_dict(checkpoint_actor['network_state_dict'])
+        self.critic.load_state_dict(checkpoint_critic['network_state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint_actor['optimizer_state_dict'])
+        self.critic_optimizer.load_state_dict(checkpoint_critic['optimizer_state_dict'])
 
     # Initialize checkpoint to save the different agents
     def init_checkpoint(self, number):

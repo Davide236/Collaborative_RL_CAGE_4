@@ -8,9 +8,12 @@ import csv
 from utils import save_statistics
 import re
 
+# Change
+from collections import Counter
+
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 750
+    MAX_EPS = 2
     def __init__(self, args):
         self.n_agents = 5
         self.agents = {}
@@ -65,11 +68,11 @@ class IPPOEvaluator:
         return total_network, total_process
             
     def initialize_environment(self):
-        sg = EnterpriseScenarioGenerator(blue_agent_class=SleepAgent,
+        self.sg = EnterpriseScenarioGenerator(blue_agent_class=SleepAgent,
                                          green_agent_class=EnterpriseGreenAgent,
                                          red_agent_class=FiniteStateRedAgent,
                                          steps=self.EPISODE_LENGTH)
-        cyborg = CybORG(scenario_generator=sg, seed=1)  # Add Seed
+        cyborg = CybORG(scenario_generator=self.sg, seed=1)  # Add Seed
         env = BlueFlatWrapper(env=cyborg)
         env.reset()
         self.env = env
@@ -87,11 +90,17 @@ class IPPOEvaluator:
     
     def find_red_actions(self, red_actions, agent_name):
         number = re.findall(r'\d+', agent_name)
+        #red_agent_original = f'red_agent_{int(number[0])}'
         red_agent = f'red_agent_{int(number[0])+1}'
+        red_data = self.sg.get_red_agent_data_eval(red_agent)
+        if not red_data:
+            red_state = 'None'
+        else:
+            red_state = red_data[red_agent]
         if red_agent in red_actions:
             red_act = red_actions[red_agent]
-            return red_act['action']
-        return 'None'
+            return red_act['action'], red_act['target'], red_state
+        return 'None', 'None', red_state
     # Red 0: Contractor Network
     # Red 1: Restricted zone A - Blue 0
     # Red 2: Operational Zone A - Blue 1
@@ -119,6 +128,9 @@ class IPPOEvaluator:
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
                 active_agents = self.env.active_agents
                 red_actions = {}
+                green_actions = {}
+                for agent_name, _ in self.agents.items():
+                    green_actions[agent_name] = [] 
                 for agent in active_agents:
                     if 'red_agent' in agent:
                         red_action = str(self.env.get_last_action(agent))
@@ -129,12 +141,27 @@ class IPPOEvaluator:
                         if len(action) > 1:
                             action_target = action[1]
                         red_actions[agent] = {'action':action_name, 'target': action_target }
+                    if 'green_agent' in agent:
+                        green_action = str(self.env.get_last_action(agent))
+                        hostname = str(self.sg.green_agent_list_evaluation[agent])
+                        if 'restricted_zone_a' in hostname:
+                            green_actions['blue_agent_0'].append({'act':green_action, 'hostname': hostname})
+                        elif 'operational_zone_a' in hostname:
+                            green_actions['blue_agent_1'].append({'act':green_action, 'hostname': hostname})
+                        elif 'restricted_zone_b' in hostname:
+                            green_actions['blue_agent_2'].append({'act':green_action, 'hostname': hostname})
+                        elif 'operational_zone_b' in hostname:
+                            green_actions['blue_agent_3'].append({'act':green_action, 'hostname': hostname})
+                        else:
+                            green_actions['blue_agent_4'].append({'act':green_action, 'hostname': hostname})
                 for agent_name, _ in self.agents.items():
                     net, proc = self.extract_subnet_info(observations[agent_name], agent_name)
                     actions_total = self.env.get_action_space(agent_name)['actions']
-                    red_act = self.find_red_actions(red_actions, agent_name)
+                    labels = self.env.action_labels(agent_name)
+                    action_label = labels[actions[agent_name]]
+                    red_act, red_target, red_fsm = self.find_red_actions(red_actions, agent_name)
                     #index = array_of_strings.index("Monitor") # 16 and 48
-                    self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0], red_act))
+                    self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0], action_label, red_act, red_target, red_fsm, green_actions[agent_name]))
                 # Perform action on the environment
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
@@ -158,7 +185,7 @@ class IPPOEvaluator:
             with open(csv_filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header
-                writer.writerow(['Net', 'proc', 'Acts', 'Red_acts'])
+                writer.writerow(['Net', 'proc', 'Blue_Acts','Blue_Acts_Extended', 'Red_acts', 'Red_acts_Target', 'Red_Fsm', 'Green_Acts'])
                 # Write data rows
                 for data in self.agent_dict[agent_name]:
                     writer.writerow(data)

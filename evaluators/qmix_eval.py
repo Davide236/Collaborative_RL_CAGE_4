@@ -12,7 +12,7 @@ import re
 
 class QMIXEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 500
+    MAX_EPS = 200
     def __init__(self, args):
         self.env = None
         self.agents = None

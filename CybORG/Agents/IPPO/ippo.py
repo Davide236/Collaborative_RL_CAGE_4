@@ -108,7 +108,6 @@ class PPO:
         self.target_kl = float(params.get('target_kl', 0.02))
         self.message_type = params.get('message_type', 'simple')
         self.anneal_type = params.get('lr_anneal', 'linear')
-
      
     
     def anneal_lr(self, steps):

@@ -31,29 +31,30 @@ for i in range(1, num_files + 1):
     averages_list.append(averages)
     
     # Calculate the rolling average (50 episodes window)
-    rolling_window = 50
+    rolling_window = 20
     rolling_averages = [np.mean(data[0][k:k+rolling_window]) for k in range(0, len(data[0]), rolling_window)]
     rolling_averages_list.append(rolling_averages)
 
 # Plot the average reward per episode for all files
-plt.figure(figsize=(10, 5))
+#plt.figure(figsize=(10, 5))
 
-plt.subplot(2, 1, 1)
-for i in range(num_files):
-    plt.plot(averages_list[i], label=labels[i])
-plt.xlabel('Number of Episodes')
-plt.ylabel('Reward')
-plt.title('Average Reward')
-plt.legend()
-plt.grid(True)
+# plt.subplot(2, 1, 1)
+# for i in range(num_files):
+#     plt.plot(averages_list[i], label=labels[i])
+# plt.xlabel('Number of Episodes')
+# plt.ylabel('Reward')
+# plt.title('Average Reward')
+# plt.legend()
+# plt.grid(True)
 
 # Plot the rolling average reward for all files
-plt.subplot(2, 1, 2)
+#plt.subplot(2, 1, 2)
+plt.plot()
 for i in range(num_files):
     plt.plot(rolling_averages_list[i], label=labels[i])
-plt.xlabel('Number of 50-Episode Windows')
+plt.xlabel('Number of 20-Episode Windows')
 plt.ylabel('Reward')
-plt.title('Rolling Average Reward (50 episodes)')
+#plt.title('Rolling Average Reward (50 episodes)')
 plt.legend()
 plt.grid(True)
 
