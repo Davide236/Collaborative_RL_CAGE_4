@@ -50,7 +50,7 @@ class FiniteStateRedAgent(BaseAgent):
 
         self.red_agents_action_list_evaluation = {}####
         self.red_agents_hostname_list_evaluation = {}
-        self.print_action_output = False
+        self.print_action_output = True
         self.print_obs_output = False
         self.prioritise_servers = False
 
