@@ -49,6 +49,7 @@ class FiniteStateRedAgent(BaseAgent):
 
 
         self.red_agents_action_list_evaluation = {}####
+        self.red_agents_hostname_list_evaluation = {}
         self.print_action_output = False
         self.print_obs_output = False
         self.prioritise_servers = False
@@ -171,7 +172,16 @@ class FiniteStateRedAgent(BaseAgent):
                             next_state = curr_state
                         host_state.append(next_state)    
                         self.host_states[host_ip]['state'] = next_state
-                self.red_agents_action_list_evaluation[self.agent_name] = {'hosts': host_ips, 'state': host_state}
+                hostname_zones = []
+                for ip_zone in host_ips:
+                    if self.red_agents_hostname_list_evaluation[ip_zone]:
+                        hostname_zones.append(self.red_agents_hostname_list_evaluation[ip_zone])
+                    else:
+                        hostname_zones.append(ip_zone)
+                #print(host_ips)
+                #print(self.red_agents_hostname_list_evaluation)
+                #print(hostname_zones)
+                self.red_agents_action_list_evaluation[self.agent_name] = {'hosts': hostname_zones, 'state': host_state}
 
     def _session_removal_state_change(self, observation):
         """The changing of state of hosts, where its session has been removed (by Blue)."""
@@ -246,6 +256,8 @@ class FiniteStateRedAgent(BaseAgent):
                 if self.host_states[ip]['hostname'] == None:
                     self.host_states[ip]['hostname'] = hostname
             
+            #print(hostname, ip)
+            self.red_agents_hostname_list_evaluation[ip] = hostname
             # if new decoy info
             if 'Processes' in host_details.keys():
                 for process in host_details['Processes']:
