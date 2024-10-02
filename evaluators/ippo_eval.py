@@ -72,8 +72,8 @@ class IPPOEvaluator:
                                          green_agent_class=EnterpriseGreenAgent,
                                          red_agent_class=FiniteStateRedAgent,
                                          steps=self.EPISODE_LENGTH)
-        cyborg = CybORG(scenario_generator=self.sg, seed=1)  # Add Seed
-        env = BlueFlatWrapper(env=cyborg)
+        self.cyborg = CybORG(scenario_generator=self.sg, seed=1)  # Add Seed
+        env = BlueFlatWrapper(env=self.cyborg)
         env.reset()
         self.env = env
         self.agents = {f"blue_agent_{agent}": PPO(env.observation_space(f'blue_agent_{agent}').shape[0],
@@ -154,12 +154,19 @@ class IPPOEvaluator:
                             green_actions['blue_agent_3'].append({'act':green_action, 'hostname': hostname})
                         else:
                             green_actions['blue_agent_4'].append({'act':green_action, 'hostname': hostname})
+                ip_map = self.cyborg.get_ip_map()
+                inverted_ip_map = {str(v): k for k, v in ip_map.items()}
                 for agent_name, _ in self.agents.items():
                     net, proc = self.extract_subnet_info(observations[agent_name], agent_name)
                     actions_total = self.env.get_action_space(agent_name)['actions']
                     labels = self.env.action_labels(agent_name)
                     action_label = labels[actions[agent_name]]
                     red_act, red_target, red_fsm = self.find_red_actions(red_actions, agent_name)
+                    if red_fsm != 'None':
+                        updated_hosts = [inverted_ip_map.get(host, host) for host in red_fsm['hosts']]
+                        red_fsm['hosts'] = updated_hosts
+                    if red_target != 'None':
+                        red_target = inverted_ip_map.get(red_target)
                     #index = array_of_strings.index("Monitor") # 16 and 48
                     self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0], action_label, red_act, red_target, red_fsm, green_actions[agent_name]))
                 # Perform action on the environment
