@@ -48,7 +48,6 @@ class PPOTrainer:
     def run(self):
         self.initialize_environment()
         reward_normalizer = RewardNormalizer()
-
         for i in range(self.MAX_EPS):
             # Reset the environment for each training episode
             observations, _ = self.env.reset()
@@ -72,12 +71,15 @@ class PPOTrainer:
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Add the global reward (scaled) to the individual reward of each agent
-                extra_reward = reward['blue_agent_0'][5]*0.8
+                extra_reward = reward['blue_agent_0'][5]#*0.4
                 reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    new_rwd = reward_normalizer.normalize(reward[agent_name]+extra_reward)
+                    agent_global_reward = extra_reward*0.1
+                    if agent_name == 'blue_agent_4':
+                        agent_global_reward = extra_reward*0.4
+                    new_rwd = reward_normalizer.normalize(reward[agent_name]+agent_global_reward)
                     agent.memory.save_end_episode(new_rwd, done)    
                 # This terminates if all agent have 'termination=true'
                 done = {
@@ -111,7 +113,7 @@ class PPOTrainer:
                 # Every 5 episodes perform a policy update
                 if (i+1) % self.ROLLOUT == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
-                    agent.learn(self.count) 
+                    agent.learn(self.count)
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)
