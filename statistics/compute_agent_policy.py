@@ -148,11 +148,12 @@ def analyze_csv_with_steps(file_path, steps_after):
                             host_state_machine[host]['actions'][state] = []
                         # Update the host's current state
                         host_state_machine[host]['current_state'] = state
-
+        
         # If there is a Blue action with a target host, track it under the host's current state
         if pd.notna(blue_extended):
             for host in current_host_state:
                 if host in blue_extended:
+                    print(host, blue_extended)
                     current_state = host_state_machine[host]['current_state']
                     host_state_machine[host]['actions'][current_state].append(blue_row['Blue_Acts'])
                     
@@ -180,15 +181,15 @@ def analyze_csv_with_steps(file_path, steps_after):
     print("\n" + "="*50 + "\n")
 
     # Print the state machine for each host
-    print("State machine for each host (Blue agent actions per state):")
-    for host, machine in host_state_machine.items():
-        print(f"Host: {host}")
-        for state, actions in machine['actions'].items():
-            action_counts = pd.Series(actions).value_counts()
-            total_actions = len(actions)
-            print(f" - State '{state}':")
-            for action, count in action_counts.items():
-                print(f"   - Action '{action}' occurred {count} times ({(count / total_actions) * 100:.2f}%)")
+    # print("State machine for each host (Blue agent actions per state):")
+    # for host, machine in host_state_machine.items():
+    #     print(f"Host: {host}")
+    #     for state, actions in machine['actions'].items():
+    #         action_counts = pd.Series(actions).value_counts()
+    #         total_actions = len(actions)
+    #         print(f" - State '{state}':")
+    #         for action, count in action_counts.items():
+    #             print(f"   - Action '{action}' occurred {count} times ({(count / total_actions) * 100:.2f}%)")
     
     print("\n" + "="*50 + "\n")
 
