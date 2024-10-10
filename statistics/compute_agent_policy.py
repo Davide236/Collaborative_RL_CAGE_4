@@ -18,14 +18,9 @@ steps_after = {
 }
 
 def extract_action_type(action_str):
-    """
-    Extract the action type from the Green_Acts string by stripping out
-    the parameters (IP addresses, etc.) and returning only the base action.
-    E.g., '[GreenLocalWork 10.0.169.196]' becomes 'GreenLocalWork'.
-    """
-    match = re.match(r"\[(\w+)", action_str)  # Match the first word inside square brackets
+    match = re.match(r"\[(\w+)", action_str)
     if match:
-        return match.group(1)  # Return the action type (e.g., 'GreenLocalWork')
+        return match.group(1)
     return None
 
 def analyze_csv_with_steps(file_path, steps_after):
@@ -88,13 +83,11 @@ def analyze_csv_with_steps(file_path, steps_after):
         blue_extended = blue_row['Blue_Acts_Extended']
         prev_green_acts = prev_green_row['Green_Acts_Parsed']
         
-        # Correlate Blue actions with the corresponding Green action right before
         if prev_green_acts:
             for green_act in prev_green_acts:
                 green_host = green_act['hostname']
                 green_action_type = extract_action_type(green_act['act'])
                 
-                # Check if the Blue action is related to the same host
                 if pd.notna(blue_extended) and green_host in blue_extended:
                     blue_to_green_correlation.append({
                         'Blue_Action': blue_row['Blue_Acts'],
@@ -123,41 +116,31 @@ def analyze_csv_with_steps(file_path, steps_after):
     # Track the current state for each host
     current_host_state = {}
 
-    # Loop through the DataFrame to find Green actions that occur before Blue actions
     for idx in range(len(df)):
         blue_row = df.iloc[idx]
         blue_extended = blue_row['Blue_Acts_Extended']
         red_fsm = blue_row['Red_Fsm']
         
-        # Update the host's state from Red_Fsm, if available
         if pd.notna(red_fsm) and red_fsm != 'None':
-            fsm_data = ast.literal_eval(red_fsm)  # Safely parse the Red_Fsm data
+            fsm_data = ast.literal_eval(red_fsm)
             hosts = fsm_data.get('hosts', [])
             states = fsm_data.get('state', [])
             
             for host, state in zip(hosts, states):
-                # Ignore hosts with IPs, only track hostnames
-                if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host):  # Match if it's an IP address
-                    current_host_state[host] = state  # Set the current state for the host
-                    # Initialize the host in state machine if not already done
+                if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host):
+                    current_host_state[host] = state
                     if host not in host_state_machine:
                         host_state_machine[host] = {'current_state': state, 'actions': {state: []}}
                     elif host_state_machine[host]['current_state'] != state:
-                        # If transitioning to a new state, initialize the new state if not present
                         if state not in host_state_machine[host]['actions']:
                             host_state_machine[host]['actions'][state] = []
-                        # Update the host's current state
                         host_state_machine[host]['current_state'] = state
         
-        # If there is a Blue action with a target host, track it under the host's current state
         if pd.notna(blue_extended):
             for host in current_host_state:
                 if host in blue_extended:
-                    print(host, blue_extended)
                     current_state = host_state_machine[host]['current_state']
                     host_state_machine[host]['actions'][current_state].append(blue_row['Blue_Acts'])
-                    
-                    # Also track globally by state
                     global_state_actions[current_state].append(blue_row['Blue_Acts'])
 
     # Print Red/Blue correlations
@@ -180,20 +163,22 @@ def analyze_csv_with_steps(file_path, steps_after):
     
     print("\n" + "="*50 + "\n")
 
-    # Print the state machine for each host
-    # print("State machine for each host (Blue agent actions per state):")
-    # for host, machine in host_state_machine.items():
-    #     print(f"Host: {host}")
-    #     for state, actions in machine['actions'].items():
-    #         action_counts = pd.Series(actions).value_counts()
-    #         total_actions = len(actions)
-    #         print(f" - State '{state}':")
-    #         for action, count in action_counts.items():
-    #             print(f"   - Action '{action}' occurred {count} times ({(count / total_actions) * 100:.2f}%)")
+    # New functionality: Output combinations of Net and proc with Blue_Acts rankings
+    print("Most chosen Blue_Acts by (Net, proc) combinations:")
+    net_proc_counts = df.groupby(['Net', 'proc', 'Blue_Acts']).size().reset_index(name='count')
+    total_counts_net_proc = net_proc_counts.groupby(['Net', 'proc'])['count'].transform('sum')
+    net_proc_counts['percentage'] = (net_proc_counts['count'] / total_counts_net_proc) * 100
     
+    # Sort and display results
+    for (net, proc), group in net_proc_counts.groupby(['Net', 'proc']):
+        print(f"\nFor Net={net}, proc={proc}:")
+        sorted_group = group.sort_values(by='percentage', ascending=False)
+        for _, row in sorted_group.iterrows():
+            print(f" - Blue_Acts '{row['Blue_Acts']}' occurred {row['count']} times ({row['percentage']:.2f}%)")
+
     print("\n" + "="*50 + "\n")
 
-    # Now, calculate and print the global state actions across hosts
+    # Print the global state actions across hosts
     print("Global actions by state across all hosts:")
     for state, actions in global_state_actions.items():
         if actions:
