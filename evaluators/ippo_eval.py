@@ -13,7 +13,7 @@ from collections import Counter
 
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 750
+    MAX_EPS = 2
     def __init__(self, args):
         self.n_agents = 5
         self.agents = {}
@@ -118,8 +118,7 @@ class IPPOEvaluator:
                 # Action selection for all agents
                 actions_messages = {
                     agent_name: agent.get_action(
-                        observations[agent_name],
-                        self.env.action_mask(agent_name)
+                        observations[agent_name]
                     )
                     for agent_name, agent in self.agents.items()
                     if agent_name in self.env.agents
@@ -156,12 +155,18 @@ class IPPOEvaluator:
                         else:
                             green_actions['blue_agent_4'].append({'act':green_action, 'hostname': hostname})
                 ip_map = self.cyborg.get_ip_map()
+                inverted_ip_map = {str(v): k for k, v in ip_map.items()}
                 for agent_name, _ in self.agents.items():
                     net, proc = self.extract_subnet_info(observations[agent_name], agent_name)
                     actions_total = self.env.get_action_space(agent_name)['actions']
                     labels = self.env.action_labels(agent_name)
                     action_label = labels[actions[agent_name]]
                     red_act, red_target, red_fsm = self.find_red_actions(red_actions, agent_name)
+                    if red_fsm != 'None':
+                        updated_hosts = [inverted_ip_map.get(host, host) for host in red_fsm['hosts']]
+                        red_fsm['hosts'] = updated_hosts
+                    if red_target != 'None':
+                        red_target = inverted_ip_map.get(red_target)
                     #index = array_of_strings.index("Monitor") # 16 and 48
                     self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0], action_label, red_act, red_target, red_fsm, green_actions[agent_name]))
                 # Perform action on the environment
