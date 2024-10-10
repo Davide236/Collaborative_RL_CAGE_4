@@ -29,7 +29,7 @@ class PPO:
         return self.rdn.compute_intrinsic_reward(state)
     
 
-    def get_action(self, state):
+    def get_action(self, state, action_mask):
         """
         Args:
             state: The current observation state of the agent.
@@ -44,7 +44,7 @@ class PPO:
         """
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         final_state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob, state_value = self.policy.action_selection(final_state) # Under the old policy
+        action, logprob, state_value = self.policy.action_selection(final_state, action_mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.memory.save_beginning_episode(final_state, logprob, action, state_value)
         message = []
