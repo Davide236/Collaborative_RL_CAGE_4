@@ -65,13 +65,20 @@ class PPOTrainer:
                 actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
 
+                intrinsic_rewards = {
+                    agent_name: agent.get_exploration_reward(
+                        observations[agent_name]
+                    )
+                    for agent_name, agent in self.agents.items()
+                    if agent_name in self.env.agents
+                }
                 # Perform action on the environment
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
                 # Add the global reward (scaled) to the individual reward of each agent
-                extra_reward = reward['blue_agent_0'][5]#*0.4
+                extra_reward = reward['blue_agent_0'][5]*0
                 reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
@@ -80,7 +87,7 @@ class PPOTrainer:
                     if agent_name == 'blue_agent_4':
                         agent_global_reward = extra_reward*0.4
                     new_rwd = reward_normalizer.normalize(reward[agent_name]+agent_global_reward)
-                    agent.memory.save_end_episode(new_rwd, done)    
+                    agent.memory.save_end_episode(new_rwd, int(intrinsic_rewards[agent_name]), done)    
                 # This terminates if all agent have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)

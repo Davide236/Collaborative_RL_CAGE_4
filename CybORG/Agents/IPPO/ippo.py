@@ -1,13 +1,15 @@
 from CybORG.Agents.IPPO.networks import ActorCritic
 from CybORG.Agents.Messages.message_handler import MessageHandler
 from CybORG.Agents.IPPO.buffer import ReplayBuffer
+from CybORG.Agents.IPPO.rnd_net import RDN_Network
+from utils import RewardNormalizer
 from torch.distributions import Categorical
 import torch 
 import torch.nn as nn
 import numpy as np
 import yaml
 import os
-import csv
+
 
 class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, messages):
@@ -20,9 +22,15 @@ class PPO:
         self.policy = ActorCritic(state_dimension, action_dimension, self.lr, self.eps, self.fc)
         self.use_messages = messages
         self.agent_number = number
+        self.reward_normalizer = RewardNormalizer(min_value=0,max_value=30)
         self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
+        self.rdn = RDN_Network(state_dimension)
+
+
+    def get_exploration_reward(self, state):
+        return self.rdn.compute_intrinsic_reward(state)
     
-    
+
     def get_action(self, state):
         """
         Args:
@@ -91,6 +99,7 @@ class PPO:
         self.gamma = float(params.get('gamma', 0.99))
         self.clip = float(params.get('clip', 0.1))
         self.lr = float(params.get('lr', 2.5e-4))
+        self.min_lr = float(params.get('min_lr', 5e-6))
         self.eps = float(params.get('eps', 1e-5))
         self.gae_lambda = float(params.get('gae_lambda', 0.95))
         self.entropy_coeff = float(params.get('entropy_coeff', 0.01))
@@ -100,10 +109,37 @@ class PPO:
         self.fc = int(params.get('fc', 256))
         self.target_kl = float(params.get('target_kl', 0.02))
         self.message_type = params.get('message_type', 'simple')
-
+        self.anneal_type = params.get('lr_anneal', 'linear')
      
     
     def anneal_lr(self, steps):
+        """
+        Args: 
+            steps: Current step or episode number
+    
+        Returns: None
+
+        Explanation: Decrease the learning rate through the episodes 
+                to promote exploitation over exploration.
+        """
+        frac = (steps - 1) / self.max_episodes
+    
+        if self.anneal_type == "linear":
+            # Linear annealing: Decrease the learning rate linearly
+            new_lr = self.lr * (1 - frac)
+        else:
+            # Exponential annealing: Decrease the learning rate exponentially
+            new_lr = self.lr * (self.min_lr / self.lr) ** frac
+        
+        # Ensure that learning rate does not go below the minimum learning rate
+        new_lr = max(new_lr, self.min_lr)
+    
+        # Update the learning rates in the optimizers
+        self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
+        self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
+    
+
+    def anneal_extrinsic_reward(self, steps):
         """
         Args: None
 
@@ -112,10 +148,11 @@ class PPO:
         Explanation: Decrease the learning rate through the episodes 
                     to promote eploitation over exploration
         """
-        frac = (steps-1)/self.max_episodes
-        new_lr = self.lr * (1-frac)
-        self.policy.actor_optimizer.param_groups[0]["lr"] = new_lr
-        self.policy.critic_optimizer.param_groups[0]["lr"] = new_lr
+        frac = (steps-1)/(self.max_episodes/2)
+        new_weight = 0.5 * (1-frac)
+        weight = max(new_weight, 0)
+        weight = 0.0
+        return weight
     
     def evaluate(self, observations, actions):
         """
@@ -201,7 +238,10 @@ class PPO:
                     as it described in the PPO update formula.
         """
         # Transform the observations, actions and log probability list into tensors
-        obs, acts, logprob, rewards, state_val, terminal = self.memory.get_batch()
+        obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
+        reward_scaler = self.anneal_extrinsic_reward(total_steps)
+        intrinsic_rewards = [[self.reward_normalizer.normalize(j) for j in i] for i in intrinsic_rewards]
+        rewards = rewards + intrinsic_rewards
         step = acts.size(0)
         index = np.arange(step)
         # Save Losses
@@ -265,4 +305,7 @@ class PPO:
         self.memory.clear_rollout_memory()
         # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)
+        self.rdn.anneal_lr()
+        self.rdn.update_predictor(obs)
+        self.rdn.reset_memory()
 
