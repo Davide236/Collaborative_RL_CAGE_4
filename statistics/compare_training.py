@@ -31,7 +31,7 @@ for i in range(1, num_files + 1):
     averages_list.append(averages)
     
     # Calculate the rolling average (50 episodes window)
-    rolling_window = 20
+    rolling_window = 25
     rolling_averages = [np.mean(data[0][k:k+rolling_window]) for k in range(0, len(data[0]), rolling_window)]
     rolling_averages_list.append(rolling_averages)
 
@@ -52,10 +52,10 @@ for i in range(1, num_files + 1):
 plt.plot()
 for i in range(num_files):
     plt.plot(rolling_averages_list[i], label=labels[i])
-plt.xlabel('Number of 20-Episode Windows')
-plt.ylabel('Reward')
-#plt.title('Rolling Average Reward (50 episodes)')
-plt.legend()
+plt.xlabel('Number of 25-Episode Windows', fontsize=14)  # Set label fontsize
+plt.ylabel('Reward', fontsize=17)  # Set label fontsize
+#plt.title('Rolling Average Reward (50 episodes)', fontsize=14)  # Set title fontsize
+plt.legend(fontsize=16)  # Set legend fontsize
 plt.grid(True)
 
 plt.tight_layout()
