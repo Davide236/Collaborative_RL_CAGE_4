@@ -3,7 +3,7 @@ from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, DiscoveryFSRed
 from CybORG.Agents.Wrappers.VisualiseRedExpansion import VisualiseRedExpansion
 
-steps = 100
+steps = 1
 sg = EnterpriseScenarioGenerator(blue_agent_class=SleepAgent, 
                                 green_agent_class=EnterpriseGreenAgent, 
                                 red_agent_class=DiscoveryFSRed,
