@@ -116,10 +116,10 @@ class PPOTrainer:
                 # Every X episodes perform a policy update
                 if (i+1) % self.rollout == 0:
                     print(f"Policy update for  {agent_name}. Total steps: {self.count}")
-                    agent.learn(self.count) 
+                    agent.learn(self.count)
+        save_statistics(self.total_rewards, self.average_rewards)
         save_agent_data_ppo(self.agents)
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.policy.critic, agent.policy.critic_optimizer, agent.last_checkpoint_file_critic)
-        save_statistics(self.total_rewards, self.average_rewards)
 
