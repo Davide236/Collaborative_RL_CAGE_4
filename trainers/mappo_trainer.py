@@ -116,12 +116,17 @@ class MAPPOTrainer:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
-                
+                    
+                extra_reward = reward['blue_agent_0'][5]
                 reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
                 for agent_name, agent in self.agents.items():
                     done = termination[agent_name] or truncation[agent_name]
-                    agent.memory.save_end_episode(reward_normalizer.normalize(reward[agent_name]), done, observations_list)
+                    agent_global_reward = extra_reward*0.1
+                    if agent_name == 'blue_agent_4':
+                        agent_global_reward = extra_reward*0.4
+                    new_rwd = reward_normalizer.normalize(reward[agent_name]+agent_global_reward)
+                    agent.memory.save_end_episode(new_rwd, done, observations_list)
                 # This terminates if all agents have 'termination=true'
                 done = {
                     agent: termination.get(agent, False) or truncation.get(agent, False)
