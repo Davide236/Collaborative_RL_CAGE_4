@@ -12,7 +12,7 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewa
 
 class MAPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 3
+    MAX_EPS = 250
 
     def __init__(self, args):
         self.env = None
@@ -125,6 +125,7 @@ class MAPPOEvaluator:
                 actions_messages = {
                     agent_name: agent.get_action(
                         observations[agent_name],
+                        self.env.action_mask(agent_name),
                         state_value = torch.tensor(1, dtype=torch.int8)
                     )
                     for agent_name, agent in self.agents.items()

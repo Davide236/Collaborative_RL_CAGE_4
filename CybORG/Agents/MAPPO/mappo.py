@@ -26,7 +26,7 @@ class PPO:
         self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
 
     
-    def get_action(self, state, state_value):
+    def get_action(self, state, mask, state_value):
         """
         Args:
             state: The current observation state of the agent.
@@ -41,7 +41,7 @@ class PPO:
         """
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob = self.actor.action_selection(state) # Under the old policy
+        action, logprob = self.actor.action_selection(state, mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.memory.save_beginning_episode(state, logprob, action, state_value) 
         message = []
