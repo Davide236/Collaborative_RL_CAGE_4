@@ -27,7 +27,7 @@ class ActorCritic(nn.Module):
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, eps=eps)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr, eps=eps)
 
-    def action_selection(self, state):
+    def action_selection(self, state, mask):
         """
         Args: 
             state: The current observation state of the agent.
@@ -44,10 +44,10 @@ class ActorCritic(nn.Module):
                     critic network.
         """
         # Apply action mask to the action probabilities
-        masked_action_probs = self.actor(state)
-        #masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
+        #masked_action_probs = self.actor(state)
+        masked_action_probs = torch.tensor(mask, dtype=torch.float) * self.actor(state)
         # Normalize probabilities
-        #masked_action_probs /= masked_action_probs.sum()
+        masked_action_probs /= masked_action_probs.sum()
         distribution = Categorical(masked_action_probs)
         action = distribution.sample() # Exploration phase
         action_logprob = distribution.log_prob(action) # Compute log probability of action
