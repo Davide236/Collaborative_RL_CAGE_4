@@ -5,15 +5,14 @@ from CybORG.Agents.MAPPO.mappo import PPO
 from CybORG.Agents.MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from statistics import mean, stdev
-import numpy as np
+import re
 import torch
 import csv
 from utils import save_statistics, save_agent_data_ppo, save_agent_network
 
 class MAPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 200
-    ROLLOUT = 10
+    MAX_EPS = 250
 
     def __init__(self, args):
         self.env = None
@@ -28,15 +27,12 @@ class MAPPOEvaluator:
         self.load_best_network = args.Load_best
         self.messages = args.Messages
         self.agent_dict = {}
-        for i in range(5):
+        for i in range(7):
             self.agent_dict[f'blue_agent_{i}'] = []
     
     # Function to extract information for each subnet
     def extract_subnet_info(self, observation_vector, agent_number):
         total_subnets = 1
-        # Agent 4 takes care of more subnets
-        if agent_number == 'blue_agent_4':
-            total_subnets = 3
         S = 9  # Number of subnets
         H = 16  # Maximum number of hosts in each subnet
         subnets_length = 3*S + 2*H
@@ -68,16 +64,17 @@ class MAPPOEvaluator:
             malicious_network.append(subnet['malicious_network_event_detected'])
             malicious_process.append(subnet['malicious_process_event_detected'])
         return total_network, total_process
+
     
     def initialize_environment(self):
-        sg = EnterpriseScenarioGenerator(
+        self.sg = EnterpriseScenarioGenerator(
             blue_agent_class=SleepAgent,
             green_agent_class=EnterpriseGreenAgent,
             red_agent_class=FiniteStateRedAgent,
             steps=self.EPISODE_LENGTH
         )
-        cyborg = CybORG(scenario_generator=sg, seed=1)  # Add Seed
-        env = BlueFlatWrapper(env=cyborg)
+        self.cyborg = CybORG(scenario_generator=self.sg, seed=1)  # Add Seed
+        env = BlueFlatWrapper(env=self.cyborg)
         env.reset()
         self.env = env
         self.agents = {
@@ -88,7 +85,7 @@ class MAPPOEvaluator:
                 agent,
                 critic = None,
                 messages= self.messages
-            ) for agent in range(5)
+            ) for agent in range(7)
         }
         print(f'Using agents {self.agents}')
         if self.load_best_network:
@@ -97,6 +94,23 @@ class MAPPOEvaluator:
         if self.load_last_network:
             for _, agent in self.agents.items():
                 agent.load_last_epoch()
+    
+
+    def find_red_actions(self, red_actions, agent_name):
+        number = re.findall(r'\d+', agent_name)
+        #red_agent_original = f'red_agent_{int(number[0])}'
+        red_agent = f'red_agent_{int(number[0])+1}'
+        if int(number[0]) > 4:
+            red_agent = 'red_agent_5'
+        red_data = self.sg.get_red_agent_data_eval(red_agent)
+        if not red_data:
+            red_state = 'None'
+        else:
+            red_state = red_data[red_agent]
+        if red_agent in red_actions:
+            red_act = red_actions[red_agent]
+            return red_act['action'], red_act['target'], red_state
+        return 'None', 'None', red_state
 
     def run(self):
         self.initialize_environment()
@@ -110,6 +124,7 @@ class MAPPOEvaluator:
                 actions_messages = {
                     agent_name: agent.get_action(
                         observations[agent_name],
+                        self.env.action_mask(agent_name),
                         state_value = torch.tensor(1, dtype=torch.int8)
                     )
                     for agent_name, agent in self.agents.items()
@@ -117,12 +132,55 @@ class MAPPOEvaluator:
                 }
                 actions = {agent_name: action for agent_name, (action, _) in actions_messages.items()}
                 messages = {agent_name: message for agent_name, (_, message) in actions_messages.items()}
+                active_agents = self.env.active_agents
+                red_actions = {}
+                green_actions = {}
+                for agent_name, _ in self.agents.items():
+                    green_actions[agent_name] = [] 
+                for agent in active_agents:
+                    if 'red_agent' in agent:
+                        red_action = str(self.env.get_last_action(agent))
+                        red_action = red_action.replace('[','').replace(']','')
+                        action = red_action.split()
+                        action_name = action[0]
+                        action_target = None
+                        if len(action) > 1:
+                            action_target = action[1]
+                        red_actions[agent] = {'action':action_name, 'target': action_target }
+                    if 'green_agent' in agent:
+                        green_action = str(self.env.get_last_action(agent))
+                        hostname = str(self.sg.green_agent_list_evaluation[agent])
+                        if 'restricted_zone_a' in hostname:
+                            green_actions['blue_agent_0'].append({'act':green_action, 'hostname': hostname})
+                        elif 'operational_zone_a' in hostname:
+                            green_actions['blue_agent_1'].append({'act':green_action, 'hostname': hostname})
+                        elif 'restricted_zone_b' in hostname:
+                            green_actions['blue_agent_2'].append({'act':green_action, 'hostname': hostname})
+                        elif 'operational_zone_b' in hostname:
+                            green_actions['blue_agent_3'].append({'act':green_action, 'hostname': hostname})
+                        elif 'contractor_network' in hostname:
+                            green_actions['blue_agent_4'].append({'act':green_action, 'hostname': hostname})
+                        elif 'public_access_zone' in hostname:
+                            green_actions['blue_agent_5'].append({'act':green_action, 'hostname': hostname})
+                        else:
+                            green_actions['blue_agent_6'].append({'act':green_action, 'hostname': hostname})
+                ip_map = self.cyborg.get_ip_map()
+                inverted_ip_map = {str(v): k for k, v in ip_map.items()}
                 for agent_name, _ in self.agents.items():
                     net, proc = self.extract_subnet_info(observations[agent_name], agent_name)
                     actions_total = self.env.get_action_space(agent_name)['actions']
+                    labels = self.env.action_labels(agent_name)
+                    action_label = labels[actions[agent_name]]
+                    red_act, red_target, red_fsm = self.find_red_actions(red_actions, agent_name)
+                    if red_fsm != 'None':
+                        updated_hosts = [inverted_ip_map.get(host, host) for host in red_fsm['hosts']]
+                        red_fsm['hosts'] = updated_hosts
+                    if red_target != 'None':
+                        red_target = inverted_ip_map.get(red_target)
                     #index = array_of_strings.index("Monitor") # 16 and 48
-                    self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0]))
+                    self.agent_dict[agent_name].append((net, proc, str(actions_total[actions[agent_name]]).split()[0], action_label, red_act, red_target, red_fsm, green_actions[agent_name]))
                 # Perform action on the environment
+
                 if self.messages:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
@@ -143,9 +201,12 @@ class MAPPOEvaluator:
             with open(csv_filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header
-                writer.writerow(['Net', 'proc', 'Acts'])
+                writer.writerow(['Net', 'proc', 'Blue_Acts','Blue_Acts_Extended', 'Red_acts', 'Red_acts_Target', 'Red_Fsm', 'Green_Acts'])
                 # Write data rows
                 for data in self.agent_dict[agent_name]:
                     writer.writerow(data)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.total_rewards)
 
+
+
+# P.S: Evaluation with hybrid rewards now

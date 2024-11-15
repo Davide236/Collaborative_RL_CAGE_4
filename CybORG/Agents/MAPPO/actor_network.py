@@ -17,7 +17,7 @@ class ActorNetwork(nn.Module):
         )
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, eps=eps)
 
-    def action_selection(self, state):
+    def action_selection(self, state, action_mask):
         """
         Args: 
             state: The current observation state of the agent.
@@ -32,8 +32,8 @@ class ActorNetwork(nn.Module):
                     we sample an action and its associated log probability value.
         """
         # Apply action mask to the action probabilities
-        masked_action_probs = self.actor(state)
-        #masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
+        #masked_action_probs = self.actor(state)
+        masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
         distribution = Categorical(masked_action_probs)
         action = distribution.sample() # Exploration phase
         action_logprob = distribution.log_prob(action) # Compute log probability of action
