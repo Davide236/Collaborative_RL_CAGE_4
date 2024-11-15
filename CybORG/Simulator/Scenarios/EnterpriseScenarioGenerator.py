@@ -165,7 +165,7 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             max_bandwidth=self.MAX_BANDWIDTH
         )
         scenario.team_calc = self._generate_team_calcs()
-
+        self.evaluation_agents = agents
         return scenario
 
     def _generate_subnets(self) -> Dict[str, Subnet]:
@@ -689,6 +689,7 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
         agents : Dict[str, ScenarioAgent]
             A dict containing all of the agents of the scenario (so far.)
         """
+        self.green_agent_list_evaluation = {}#Added
         green_actions = [GreenAccessService, GreenLocalWork, Sleep]
         green_agent_count = 0
         for subnet in subnets.values():
@@ -701,6 +702,7 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
                         'Interfaces': 'All', 'System info': 'All', 'User info': 'All'
                     }
                 agent_name = f"green_agent_{green_agent_count}"
+                self.green_agent_list_evaluation[agent_name] = hostname
                 green_agent_count += 1
                 session = Session(
                     name=f"green_session_{green_agent_count}",
@@ -725,6 +727,11 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
                     agent_name, "Green", [session], green_actions, osint, [subnet.name], agent_type, True,
                     default_actions
                 )
+
+    def get_red_agent_data_eval(self, name):
+        agent = self.evaluation_agents[name]
+        return agent.return_agent_evaluation()
+
 
     def _generate_red_agents(self, subnets: Dict[str, Subnet], agents):
         """

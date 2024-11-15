@@ -23,7 +23,7 @@ class PPO:
         self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
     
     
-    def get_action(self, state):
+    def get_action(self, state, mask):
         """
         Args:
             state: The current observation state of the agent.
@@ -38,7 +38,7 @@ class PPO:
         """
         normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
         final_state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob, state_value = self.policy.action_selection(final_state) # Under the old policy
+        action, logprob, state_value = self.policy.action_selection(final_state, mask) # Under the old policy
         # Save state, log probability, action and state value to rollout memory
         self.memory.save_beginning_episode(final_state, logprob, action, state_value)
         message = []
@@ -56,13 +56,16 @@ class PPO:
     # Load the last saved networks
     def load_last_epoch(self):
         print('Loading Last saved Networks......')
-        print(self.last_checkpoint_file_actor)
+        checkpoint_act = torch.load(self.last_checkpoint_file_actor)
+        checkpoint_crit = torch.load(self.last_checkpoint_file_critic)
         # self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor['network_state_dict']))
         # self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic['network_state_dict']))
         # self.policy.actor_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_actor['optimizer_state_dict']))
         # self.policy.critic_optimizer.load_state_dict(torch.load(self.last_checkpoint_file_critic['optimizer_state_dict']))
-        self.policy.actor.load_state_dict(torch.load(self.last_checkpoint_file_actor))
-        self.policy.critic.load_state_dict(torch.load(self.last_checkpoint_file_critic))
+        self.policy.actor.load_state_dict(checkpoint_act['network_state_dict'])
+        self.policy.critic.load_state_dict(checkpoint_crit['network_state_dict'])
+
+
 
 
 
