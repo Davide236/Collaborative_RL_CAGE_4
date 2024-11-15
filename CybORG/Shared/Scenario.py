@@ -66,6 +66,9 @@ class ScenarioAgent(CybORGLogger):
         self.active = active
         self.default_actions = default_actions
         self.internal_only = internal_only
+    
+    def return_agent_evaluation(self):
+        return self.agent_type.red_agents_action_list_evaluation
 
     @staticmethod
     def get_action_classes(actions):
