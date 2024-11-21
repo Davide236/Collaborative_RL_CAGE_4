@@ -11,7 +11,7 @@ steps_after = {
     "PrivilegeEscalate": 2,
     "Impact": 2,
     "DegradeServices": 2,
-    "DiscoverDeception": 2,
+    "DiscoverDeception":2,
     "Sleep": 1,
     "None": 1,
     "ExploitRemoteService": 4
@@ -169,6 +169,11 @@ def analyze_csv_with_steps(file_path, steps_after):
 
     print("\n" + "="*50 + "\n")
 
+    print("Most chosen Blue actions overall:")
+    for _, row in blue_action_counts.iterrows():
+        print(f" - Action '{row['Blue_Acts']}' chosen {row['count']} times ({row['percentage']:.2f}%)")
+    print("\n" + "="*50 + "\n")
+
     # Print Blue/Green correlations
     print("Correlation between Blue_Acts and Green_Acts:")
     for blue_action in grouped_green_blue['Blue_Action'].unique():
@@ -179,16 +184,16 @@ def analyze_csv_with_steps(file_path, steps_after):
     
     print("\n" + "="*50 + "\n")
 
-    # Print the state machine for each host
-    print("State machine for each host (Blue agent actions per state):")
-    for host, machine in host_state_machine.items():
-        print(f"Host: {host}")
-        for state, actions in machine['actions'].items():
-            action_counts = pd.Series(actions).value_counts()
-            total_actions = len(actions)
-            print(f" - State '{state}':")
-            for action, count in action_counts.items():
-                print(f"   - Action '{action}' occurred {count} times ({(count / total_actions) * 100:.2f}%)")
+    # # Print the state machine for each host
+    # print("State machine for each host (Blue agent actions per state):")
+    # for host, machine in host_state_machine.items():
+    #     print(f"Host: {host}")
+    #     for state, actions in machine['actions'].items():
+    #         action_counts = pd.Series(actions).value_counts()
+    #         total_actions = len(actions)
+    #         print(f" - State '{state}':")
+    #         for action, count in action_counts.items():
+    #             print(f"   - Action '{action}' occurred {count} times ({(count / total_actions) * 100:.2f}%)")
     
     print("\n" + "="*50 + "\n")
 
