@@ -29,6 +29,7 @@ class QMIXTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.name = args.Name
 
     def setup_agents(self, env):
         n_agents = 5
@@ -134,5 +135,5 @@ class QMIXTrainer:
             save_agent_network(network, self.agents.agent_optimizers[number], save_path)
         save_path = os.path.join(f'last_networks\qmix\{self.agents.message_type}', f'mixer')
         save_agent_network(self.agents.qmix_net_eval, self.agents.mixing_optimizer, save_path)
-        save_statistics(self.total_rewards, self.total_rewards)
+        save_statistics(self.total_rewards, self.total_rewards, self.name)
         save_agent_data_mixer(self.agents)

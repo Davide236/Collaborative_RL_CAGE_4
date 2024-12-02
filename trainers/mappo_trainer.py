@@ -28,6 +28,7 @@ class MAPPOTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.name = args.Name
 
     @staticmethod
     def concatenate_observations(observations, agents):
@@ -161,5 +162,5 @@ class MAPPOTrainer:
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor.actor_optimizer, agent.last_checkpoint_file_actor)
         save_agent_network(self.centralized_critic, self.centralized_critic.critic_optimizer,self.last_checkpoint_file_critic)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.average_rewards, self.name)
 

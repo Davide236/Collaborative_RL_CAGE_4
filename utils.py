@@ -42,11 +42,11 @@ def save_agent_network(network, optimizer, path):
         'optimizer_state_dict': optimizer.state_dict(),
     }, path)
     
-def save_statistics(total_rewards, average_rewards):
+def save_statistics(total_rewards, average_rewards, name):
     rewards_mean = mean(total_rewards)
     rewards_stdev = stdev(total_rewards)
     total_rewards_transposed = [[elem] for elem in average_rewards]
-    with open('reward_history.csv', mode='w', newline='') as file:
+    with open(f'{name}.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['Rewards'])  # Write header
         writer.writerows(total_rewards_transposed)

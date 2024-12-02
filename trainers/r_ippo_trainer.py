@@ -25,6 +25,7 @@ class RecurrentIPPOTrainer:
         self.messages = args.Messages
         self.average_rewards = []
         self.count = 0  # Keep track of total episodes
+        self.name = args.Name
 
     def setup_agents(self, env):
         agents = {f"blue_agent_{agent}": PPO(
@@ -119,6 +120,6 @@ class RecurrentIPPOTrainer:
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.critic, agent.critic_optimizer, agent.last_checkpoint_file_critic)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.average_rewards, self.name)
 
 

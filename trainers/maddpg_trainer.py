@@ -30,6 +30,7 @@ class MADDPGTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.name = args.Name
 
     def setup_agents(self):
         n_agents = 5
@@ -125,6 +126,6 @@ class MADDPGTrainer:
             save_agent_network(agent.actor, agent.actor.optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.critic, agent.critic.optimizer, agent.last_checkpoint_file_critic)
         save_agent_data_maddpg(self.agents)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.average_rewards, self.name)
 
 

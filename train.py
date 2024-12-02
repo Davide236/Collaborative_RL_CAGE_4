@@ -19,6 +19,12 @@ def main():
     )
     
     parser.add_argument(
+        '--Name',
+        type=str,
+        default='IPPO',
+        help='The name of the training'
+    )
+    parser.add_argument(
         '--Messages',
         type=bool,
         default=False,

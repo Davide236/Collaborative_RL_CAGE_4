@@ -10,7 +10,7 @@ from utils import save_statistics, save_agent_data_ppo, save_agent_network, rewa
 
 class PPOTrainer:
     EPISODE_LENGTH = 500
-    MAX_EPS = 3000
+    MAX_EPS = 4000
     ROLLOUT = 10
 
     def __init__(self, args):
@@ -23,6 +23,7 @@ class PPOTrainer:
         self.load_last_network = args.Load_last
         self.load_best_network = args.Load_best
         self.messages = args.Messages
+        self.name = args.Name
 
     def initialize_environment(self):
         sg = EnterpriseScenarioGenerator(blue_agent_class=SleepAgent,
@@ -125,5 +126,5 @@ class PPOTrainer:
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.policy.actor, agent.policy.actor_optimizer, agent.last_checkpoint_file_actor)
             save_agent_network(agent.policy.critic, agent.policy.critic_optimizer, agent.last_checkpoint_file_critic)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.average_rewards, self.name)
 

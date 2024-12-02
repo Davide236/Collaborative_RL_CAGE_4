@@ -33,6 +33,7 @@ class RecurrentMAPPOTrainer:
         self.messages = args.Messages
         self.centralized_critic = None
         self.critic_optimizer = None
+        self.name = args.Name
 
     def concatenate_observations(self, observations):
         observation_list = []
@@ -163,5 +164,5 @@ class RecurrentMAPPOTrainer:
         for agent_name, agent in self.agents.items():
             save_agent_network(agent.actor, agent.actor_optimizer, agent.last_checkpoint_file_actor)
         save_agent_network(self.centralized_critic, self.critic_optimizer,self.last_checkpoint_file_critic)
-        save_statistics(self.total_rewards, self.average_rewards)
+        save_statistics(self.total_rewards, self.average_rewards, self.name)
 
