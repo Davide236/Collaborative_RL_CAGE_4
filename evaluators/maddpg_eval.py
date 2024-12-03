@@ -12,7 +12,7 @@ from utils import save_statistics, save_agent_data_maddpg, save_agent_network
 
 class MADDPGEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 1500
+    MAX_EPS = 500
     LOAD_NETWORKS = False
     LOAD_BEST = False
     ROLLOUT = 10

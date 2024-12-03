@@ -3,16 +3,16 @@ from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
 from CybORG.Agents.QMIX.qmix import QMix
-from statistics import mean, stdev
+from statistics import mean
 import csv
 import matplotlib.pyplot as plt
-from utils import save_statistics, save_agent_data_mixer, save_agent_network
+from utils import save_statistics
 import re
 
 
 class QMIXEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 200
+    MAX_EPS = 500
     def __init__(self, args):
         self.env = None
         self.agents = None

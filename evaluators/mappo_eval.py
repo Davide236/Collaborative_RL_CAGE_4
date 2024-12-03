@@ -2,17 +2,15 @@ from CybORG import CybORG
 from CybORG.Simulator.Scenarios import EnterpriseScenarioGenerator
 from CybORG.Agents.Wrappers import BlueFlatWrapper
 from CybORG.Agents.MAPPO.mappo import PPO
-from CybORG.Agents.MAPPO.critic_network import CriticNetwork
 from CybORG.Agents import SleepAgent, EnterpriseGreenAgent, FiniteStateRedAgent
-from statistics import mean, stdev
-import numpy as np
+from statistics import mean
 import torch
 import csv
-from utils import save_statistics, save_agent_data_ppo, save_agent_network
+from utils import save_statistics
 
 class MAPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 200
+    MAX_EPS = 500
 
     def __init__(self, args):
         self.env = None

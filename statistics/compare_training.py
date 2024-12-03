@@ -1,19 +1,24 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter  # For smoothing
 
-# Ask for the number of files
+# Input: Number of files
 num_files = int(input("Enter the number of reward files to load: "))
 
-# Initialize lists to store data, averages, and rolling averages
+# Initialize data structures
 data_list = []
-averages_list = []
-rolling_averages_list = []
 labels = []
 
-# Load each file dynamically and calculate averages (the files are loaded in order in rewards.csv files) [rewards.csv, rewards1.csv, rewards2.csv etc.]
+# Load files and calculate means and error bars
+mean_list = []
+error_list = []
+lower_bound_list = []
+upper_bound_list = []
+
 for i in range(1, num_files + 1):
-    file_name = f'../rewards{i}.csv' if i > 1 else '../rewards.csv'
+    # Dynamic file naming
+    file_name = f'../Rewards{i}.csv' if i > 1 else '../Rewards1.csv'
     label = input(f"Enter label for file {file_name}: ")
     labels.append(label)
     
@@ -21,42 +26,59 @@ for i in range(1, num_files + 1):
     data = pd.read_csv(file_name, header=None)
     data_list.append(data)
     
-    # Calculate the averages
-    total_sum = 0
-    averages = []
-    for j, value in enumerate(data[0], 1):
-        total_sum += value
-        average = total_sum / j
-        averages.append(average)
-    averages_list.append(averages)
+    # Calculate mean and standard error for each row
+    mean_values = data.mean(axis=1)  # Mean across columns for each row
+    error_values = data.std(axis=1) / np.sqrt(data.shape[1])  # Standard error
     
-    # Calculate the rolling average (50 episodes window)
-    rolling_window = 25
-    rolling_averages = [np.mean(data[0][k:k+rolling_window]) for k in range(0, len(data[0]), rolling_window)]
-    rolling_averages_list.append(rolling_averages)
+    # Smooth the mean values and error bounds using Savitzky-Golay filter
+    smoothed_mean = savgol_filter(mean_values, window_length=51, polyorder=3)  # Smooth mean
+    smoothed_error = savgol_filter(error_values, window_length=51, polyorder=3)  # Smooth error
+    
+    mean_list.append(smoothed_mean)
+    error_list.append(smoothed_error)
+    
+    # Calculate smoothed upper and lower bounds
+    lower_bound = smoothed_mean - smoothed_error
+    upper_bound = smoothed_mean + smoothed_error
+    lower_bound_list.append(lower_bound)
+    upper_bound_list.append(upper_bound)
 
-# Plot the average reward per episode for all files
-#plt.figure(figsize=(10, 5))
+# Plotting
+plt.figure(figsize=(10, 6))
 
-# plt.subplot(2, 1, 1)
-# for i in range(num_files):
-#     plt.plot(averages_list[i], label=labels[i])
-# plt.xlabel('Number of Episodes')
-# plt.ylabel('Reward')
-# plt.title('Average Reward')
-# plt.legend()
-# plt.grid(True)
+colors = ['blue', 'orange', 'green', 'red']  # Add more colors if needed
+markers = ['o', 's', 'x', '^']  # Marker styles for each line
 
-# Plot the rolling average reward for all files
-#plt.subplot(2, 1, 2)
-plt.plot()
 for i in range(num_files):
-    plt.plot(rolling_averages_list[i], label=labels[i])
-plt.xlabel('Number of 25-Episode Windows', fontsize=14)  # Set label fontsize
-plt.ylabel('Reward', fontsize=17)  # Set label fontsize
-#plt.title('Rolling Average Reward (50 episodes)', fontsize=14)  # Set title fontsize
-plt.legend(fontsize=16)  # Set legend fontsize
-plt.grid(True)
+    # Calculate the average of the smoothed error for the label
+    avg_error = np.mean(error_list[i])
+    label_with_error = f"{labels[i]} (± {avg_error:.2f})"  # Append error value to the label
+    
+    # Plot smoothed mean with shaded error margins
+    plt.plot(
+        mean_list[i],
+        label=label_with_error,
+        color=colors[i % len(colors)],
+        marker=markers[i % len(markers)],
+        markevery=200,  # Place markers at regular intervals
+        linestyle='-',  # Solid line
+        linewidth=1.5
+    )
+    plt.fill_between(
+        range(len(mean_list[i])),
+        lower_bound_list[i],  # Smoothed lower bound
+        upper_bound_list[i],  # Smoothed upper bound
+        color=colors[i % len(colors)],
+        alpha=0.2  # Transparency for shading
+    )
 
+# Add labels, title, and grid
+plt.xlabel('Number of 20-Episode Windows', fontsize=12, fontweight='bold')
+plt.ylabel('Mean Reward', fontsize=12, fontweight='bold')
+#plt.title('Smoothed Mean Reward with Error Margins', fontsize=14, fontweight='bold')
+plt.legend(title="Method", loc='upper left', fontsize=10)
+plt.grid(True, linestyle='--', alpha=0.7)
+
+# Tight layout and show
 plt.tight_layout()
 plt.show()

@@ -13,7 +13,7 @@ from collections import Counter
 
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
-    MAX_EPS = 200
+    MAX_EPS = 500
     def __init__(self, args):
         self.n_agents = 5
         self.agents = {}
