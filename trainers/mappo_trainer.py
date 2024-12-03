@@ -117,7 +117,7 @@ class MAPPOTrainer:
                     observations, reward, termination, truncation, _ = self.env.step(actions, messages=messages)
                 else:
                     observations, reward, termination, truncation, _ = self.env.step(actions)
-                    
+                
                 extra_reward = reward['blue_agent_0'][5]
                 reward = rewards_handler(reward)
                 # Append the rewards and termination for each agent
