@@ -5,25 +5,27 @@ from torch.distributions import Categorical
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, lr, eps, fc):
         super(ActorCritic, self).__init__()
-        # Width of the network
-        # Initialize actor network
+
+        # Actor Network: This network outputs action probabilities from the input state
         self.actor = nn.Sequential(
-            nn.Linear(state_dim, fc),
-            nn.ReLU(),
-            nn.Linear(fc,fc),
-            nn.ReLU(),
-            nn.Linear(fc, action_dim),
-            nn.Softmax(dim=-1) # For probabilities
-        )
-        # Initialize critc network
-        self.critic = nn.Sequential(
-            nn.Linear(state_dim, fc),
-            nn.ReLU(),
-            nn.Linear(fc,fc),
-            nn.ReLU(),
-            nn.Linear(fc, 1)
+            nn.Linear(state_dim, fc),         # First hidden layer
+            nn.ReLU(),                        # ReLU activation
+            nn.Linear(fc, fc),                # Second hidden layer
+            nn.ReLU(),                        # ReLU activation
+            nn.Linear(fc, action_dim),        # Output layer (action probabilities)
+            nn.Softmax(dim=-1)                # Softmax to convert outputs to probabilities
         )
 
+        # Critic Network: This network estimates the value of the given state
+        self.critic = nn.Sequential(
+            nn.Linear(state_dim, fc),         # First hidden layer
+            nn.ReLU(),                        # ReLU activation
+            nn.Linear(fc, fc),                # Second hidden layer
+            nn.ReLU(),                        # ReLU activation
+            nn.Linear(fc, 1)                  # Output layer (state value)
+        )
+
+        # Optimizers for both the actor and critic networks
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, eps=eps)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr, eps=eps)
 
@@ -44,11 +46,8 @@ class ActorCritic(nn.Module):
                     critic network.
         """
         # Apply action mask to the action probabilities
-        masked_action_probs = self.actor(state)
-        #masked_action_probs = torch.tensor(action_mask, dtype=torch.float) * self.actor(state)
-        # Normalize probabilities
-        #masked_action_probs /= masked_action_probs.sum()
-        distribution = Categorical(masked_action_probs)
+        action_probs = self.actor(state)
+        distribution = Categorical(action_probs)
         action = distribution.sample() # Exploration phase
         action_logprob = distribution.log_prob(action) # Compute log probability of action
         state_value = self.critic(state) # Compute the state value

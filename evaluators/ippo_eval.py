@@ -8,9 +8,6 @@ import csv
 from utils import save_statistics
 import re
 
-# Change
-from collections import Counter
-
 class IPPOEvaluator:
     EPISODE_LENGTH = 500
     MAX_EPS = 500
