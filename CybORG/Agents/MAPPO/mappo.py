@@ -2,84 +2,156 @@ from CybORG.Agents.MAPPO.actor_network import ActorNetwork
 from CybORG.Agents.MAPPO.buffer import ReplayBuffer
 from CybORG.Agents.Messages.message_handler import MessageHandler
 from torch.distributions import Categorical
-import torch 
-import torch.nn as nn
+import torch
 import numpy as np
+import torch.nn as nn
 import yaml
 import os
-import csv
 
 class PPO:
     def __init__(self, state_dimension, action_dimension, total_episodes, number, critic, messages):
-        # Initialize Hyperparameters, Rollout memory and Checkpoints
-        self.init_hyperparameters(total_episodes)
-        self.memory = ReplayBuffer()
-        self.init_checkpoint(number)
-        self.init_check_memory(number)
-        # Save the number of the agent
-        self.agent_number = number
-        self.use_messages = messages
-        # Initialize actor and critic network
-        self.actor = ActorNetwork(state_dimension, action_dimension, self.lr, self.eps, self.fc)
-        # Initialize critic
-        self.critic = critic
-        self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
+        """
+        Args:
+            state_dimension (int): The dimension of the input state space.
+            action_dimension (int): The dimension of the output action space.
+            total_episodes (int): Total number of episodes for training.
+            number (int): Identifier for the agent (useful in multi-agent setups).
+            critic (object): Critic network instance for value function approximation.
+            messages (bool): Whether the agent uses messaging.
 
+        Returns: 
+            None
+
+        Explanation:
+            Initializes hyperparameters, memory buffers, and networks for the PPO agent.
+        """
+        self.init_hyperparameters(total_episodes)  # Load hyperparameters from configuration
+        self.memory = ReplayBuffer()  # Initialize replay buffer for storing episodes
+        self.init_checkpoint(number)  # Initialize checkpoint file paths
+        self.init_check_memory(number)  # Initialize memory for tracking training statistics
+
+        self.agent_number = number  # Agent identifier
+        self.use_messages = messages  # Messaging toggle
+
+        # Actor network for policy approximation
+        self.actor = ActorNetwork(state_dimension, action_dimension, self.lr, self.eps, self.fc)
+        
+        # Critic network for value function approximation
+        self.critic = critic  
+        # Message handler for preparing and sending messages
+        self.message_handler = MessageHandler(message_type=self.message_type, number=self.agent_number)
     
     def get_action(self, state, state_value):
         """
         Args:
-            state: The current observation state of the agent.
+            state (array-like): The current state observation of the agent.
+            state_value (float): Value of the current state as predicted by the critic.
 
         Returns:
-            action: The action chosen to be executed.
+            tuple: Selected action and message (if messaging is enabled).
 
-        Explanation: This function input a state (observation) of the agent
-                    and outputs an action which is sampled from a categorical
-                    probability distribution of all the possible actions given
-                    the state.
+        Explanation:
+            Takes the current state, normalizes it, and computes the action 
+            using the actor network. Saves relevant data for training and 
+            optionally prepares messages.
         """
-        normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)  # Add small epsilon to avoid division by zero
-        state = torch.FloatTensor(normalized_state.reshape(1,-1)) # Flatten the state
-        action, logprob = self.actor.action_selection(state) # Under the old policy
-        # Save state, log probability, action and state value to rollout memory
-        self.memory.save_beginning_episode(state, logprob, action, state_value) 
+        # Normalize the state to avoid large variance
+        normalized_state = (state - np.mean(state)) / (np.std(state) + 1e-8)
+        state = torch.FloatTensor(normalized_state.reshape(1, -1))  # Reshape and convert to tensor
+
+        # Select action based on the current policy
+        action, logprob = self.actor.action_selection(state)
+        # Save the state, action, log-probability, and state value to memory
+        self.memory.save_beginning_episode(state, logprob, action, state_value)
+
+        # Prepare a message if messaging is enabled
         message = []
         if self.use_messages:
             message = self.message_handler.prepare_message(state, action.item())
+
         return action.item(), message
 
-    # Initialize arrays to save important information for the training
     def init_check_memory(self, number):
-        self.entropy = []
-        self.critic_loss = []
-        self.actor_loss = []
-        self.save_path = f'saved_statistics\mappo\{self.message_type}\data_agent_{number}.csv'
-    
-    
-    def load_last_epoch(self):
-        print('Loading Last saved Networks and Optimizers......')
-        checkpoint = torch.load(self.last_checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['actor_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        """
+        Args:
+            number (int): Identifier for the agent.
 
-    
+        Returns:
+            None
+
+        Explanation:
+            Initializes arrays to store training metrics such as loss and entropy 
+            for later analysis.
+        """
+        self.entropy = []  # List to store entropy values
+        self.critic_loss = []  # List to store critic loss values
+        self.actor_loss = []  # List to store actor loss values
+        # Path to save training statistics as a CSV file
+        self.save_path = f'saved_statistics/mappo/{self.message_type}/data_agent_{number}.csv'
+
+    def load_last_epoch(self):
+        """
+        Args:
+            None
+
+        Returns:
+            None
+
+        Explanation:
+            Loads the actor network and its optimizer state from the most recent checkpoint.
+        """
+        print('Loading Last saved Networks and Optimizers......')
+        checkpoint = torch.load(self.last_checkpoint_file_actor)  # Load checkpoint
+        self.actor.load_state_dict(checkpoint['actor_state_dict'])  # Load actor network weights
+        self.actor.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])  # Load optimizer state
+
     def load_network(self):
+        """
+        Args:
+            None
+
+        Returns:
+            None
+
+        Explanation:
+            Loads the actor network and its optimizer state from the main checkpoint.
+        """
         print('Loading Networks and Optimizers......')
-        checkpoint = torch.load(self.checkpoint_file_actor)
-        self.actor.load_state_dict(checkpoint['network_state_dict'])
-        self.actor.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        checkpoint = torch.load(self.checkpoint_file_actor)  # Load checkpoint
+        self.actor.load_state_dict(checkpoint['network_state_dict'])  # Load actor network weights
+        self.actor.actor_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # Load optimizer state
 
     def init_checkpoint(self, number):
-        self.checkpoint_file_actor = os.path.join(f'saved_networks\mappo\{self.message_type}', f'actor_mappo_{number}')
-        self.last_checkpoint_file_actor = os.path.join(f'last_networks\mappo\{self.message_type}', f'actor_mappo_{number}')
+        """
+        Args:
+            number (int): Identifier for the agent.
 
+        Returns:
+            None
 
-    # Initialize hyperparameters
+        Explanation:
+            Initializes file paths for saving and loading checkpoint files.
+        """
+        # Paths for saving and loading checkpoints
+        self.checkpoint_file_actor = os.path.join(f'saved_networks/mappo/{self.message_type}', f'actor_mappo_{number}')
+        self.last_checkpoint_file_actor = os.path.join(f'last_networks/mappo/{self.message_type}', f'actor_mappo_{number}')
+
     def init_hyperparameters(self, episodes):
+        """
+        Args:
+            episodes (int): Total number of training episodes.
+
+        Returns:
+            None
+
+        Explanation:
+            Loads hyperparameters from a YAML configuration file or uses default values.
+        """
         config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
             params = yaml.safe_load(file)
+
+        # Hyperparameter values
         self.epochs = int(params.get('epochs', 10))
         self.gamma = float(params.get('gamma', 0.99))
         self.clip = float(params.get('clip', 0.1))
@@ -97,182 +169,219 @@ class PPO:
         self.max_episodes = episodes
         self.anneal_type = params.get('lr_anneal', 'linear')
 
-
-     
     def anneal_lr(self, steps):
         """
-        Args: 
-            steps: Current step or episode number
-    
-        Returns: None
+        Args:
+            steps (int): Current training step or episode.
 
-        Explanation: Decrease the learning rate through the episodes 
-                to promote exploitation over exploration.
+        Returns:
+            None
+
+        Explanation:
+            Adjusts the learning rate based on the current training step. Supports 
+            linear and exponential annealing to encourage convergence over time.
         """
+        # Fractional progress of training
         frac = (steps - 1) / self.max_episodes
-    
+
+        # Update learning rate based on annealing type
         if self.anneal_type == "linear":
-            # Linear annealing: Decrease the learning rate linearly
             new_lr = self.lr * (1 - frac)
-        else:
-            # Exponential annealing: Decrease the learning rate exponentially
+        else:  # Exponential annealing
             new_lr = self.lr * (self.min_lr / self.lr) ** frac
-        
-        # Ensure that learning rate does not go below the minimum learning rate
+
+        # Ensure the learning rate does not drop below the minimum
         new_lr = max(new_lr, self.min_lr)
-    
-        # Update the learning rates in the optimizers
+
+        # Update learning rates in the actor and critic optimizers
         self.actor.actor_optimizer.param_groups[0]["lr"] = new_lr
         self.critic.critic_optimizer.param_groups[0]["lr"] = new_lr
 
-    
     def evaluate(self, global_obs, observations, actions):
         """
         Args: 
-            observations: list of observation (states) recorded by the agent
-            actions: list of actions performed for each of the observations
+            global_obs (tensor): Global observations of the environment, used by the critic.
+            observations (tensor): Local observations specific to the agent.
+            actions (tensor): Actions performed corresponding to the observations.
 
         Returns: 
-            state_value: the value associated with the input observation, obtained by querying the critic network
-            log_probs: log probability of the input actions given the distribution
-            entropy: entropy value of the action probability distribution
+            state_value (tensor): Estimated state value from the critic network.
+            log_probs (tensor): Logarithmic probabilities of the actions under the policy.
+            entropy (tensor): Entropy of the action distribution, indicating randomness.
 
-        Explanation: In this function the Actor and Critic network are queried given
-                    arrays of observation and action, in order to return the state value
-                    of the observations (critic network), the logarithmic probability
-                    of the actions (actor network) and the entropy of the action distribution.
+        Explanation: 
+            This function uses the actor and critic networks to evaluate the state value
+            (critic), the log-probabilities of actions (actor), and the entropy of the 
+            action distribution. This information is critical for policy updates.
         """
-        # TODO: Change this
+        # Query the critic for state values based on global observations
         state_value = self.critic.get_state_value(global_obs).squeeze()
+
+        # Compute action probabilities using the actor network
         masked_action_probs = self.actor(observations)
+        # Create a categorical distribution over actions
         dist = Categorical(masked_action_probs)
+
+        # Compute log probabilities and entropy for the actions
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
+
         return state_value, log_probs, entropy
-    
-    # TODO: Calculate GAE here can be done for all the agents since it's centralized(?)
+
     def calculate_gae(self, rewards, values, terminated):
         """
         Args: 
-            rewards: list containing all the rewards (divided by episode) achieved by the agent
-            values:  list containing all the state values (divided by episode) encountered by the agent
-            terminated: list of booleans containing the termination flag for all the episodes
+            rewards (list): Rewards achieved by the agent at each timestep, grouped by episodes.
+            values (list): State values corresponding to each timestep, grouped by episodes.
+            terminated (list): Termination flags indicating the end of episodes.
 
         Returns: 
-            advantage_list: list of advantages for each timestep
+            advantage_list (tensor): Calculated advantages for each timestep, as a tensor.
 
-        Explanation: In this function we want to calculate the advantages by taking into account
-                    not only the achieved rewards, but also the estimated state value at the specific
-                    time step. The terminated flag is used to make sure that the agent knows when 
-                    an episode ends and a new one starts.
+        Explanation:
+            This function calculates the Generalized Advantage Estimation (GAE) for each timestep. 
+            The GAE method helps in reducing the variance of policy gradients while maintaining bias.
+            It uses rewards and state values to compute the advantage at each timestep.
+            - If the episode is terminated, we don't need to discount future rewards.
+            - The advantages are calculated by bootstrapping the future rewards based on the state value function.
         """
         batch_advantage = []
-        count = 0
-        # Start from the end since its easier calculation
+        # Iterate through each episode to compute advantages
         for ep_rews, ep_vals, ep_dones in zip(rewards, values, terminated):
-            count += 1
             advantages = []
-            last_advantage = 0 
-            # Start from last
+            last_advantage = 0  # Initialize the last advantage as zero
+            # Traverse the episode in reverse to calculate advantages
             for t in reversed(range(len(ep_rews))):
-                if t+1 < len(ep_rews):
-                    # TD (Temporal Difference) error for timestep t
-                    delta = ep_rews[t] + self.gamma * ep_vals[t+1] * (1-ep_dones[t+1]) - ep_vals[t]
+                if t + 1 < len(ep_rews):
+                    # Compute TD error for intermediate timesteps
+                    delta = ep_rews[t] + self.gamma * ep_vals[t + 1] * (1 - ep_dones[t + 1]) - ep_vals[t]
                 else:
-                    # In case this is the last timestep we dont have to add discount
+                    # For the last timestep, exclude future rewards
                     delta = ep_rews[t] - ep_vals[t]
-                # Following A_gae formula, he advantage at a step is delta + (gamma*lambda)*previous advantage
-                advantage = delta + self.gamma*self.gae_lambda*(1-ep_dones[t])*last_advantage
-                # Save the advantage to be used in the next calculation
+                # Generalized Advantage Estimation formula
+                advantage = delta + self.gamma * self.gae_lambda * (1 - ep_dones[t]) * last_advantage
                 last_advantage = advantage
-                advantages.insert(0,advantage)
+                # Insert the computed advantage at the beginning of the list
+                advantages.insert(0, advantage)
+            # Extend batch_advantage with episode advantages
             batch_advantage.extend(advantages)
-        # Return list of advantages
-        advantage_list = torch.tensor(batch_advantage, dtype=torch.float) 
+
+        # Convert to tensor for compatibility with PyTorch operations
+        advantage_list = torch.tensor(batch_advantage, dtype=torch.float)
         return advantage_list
-    
-    # Save the different loss parameters
+
     def save_data(self, entropy_loss, c_loss, a_loss):
-        self.entropy.append(entropy_loss.item())
-        self.critic_loss.append(c_loss.item())
-        self.actor_loss.append(a_loss.item())
-
-
-    def learn(self,total_steps):
         """
         Args: 
-            total_steps: total number of training 'steps' done so far. Variable used for the decay of the learning rate
+            entropy_loss (tensor): Entropy loss for the current training iteration.
+            c_loss (tensor): Critic loss for the current training iteration.
+            a_loss (tensor): Actor loss for the current training iteration.
 
         Returns: 
             None
 
-        Explanation: This is the main learning function of the agents, in which all the previously saved
-                    data (observations, actions, logarithmic probabilities etc.) are used for the policy update
-                    as it described in the PPO update formula.
+        Explanation: 
+            This function saves the entropy, critic, and actor losses into corresponding 
+            lists for later analysis and debugging.
         """
-        # Transform the observations, actions and log probability list into tensors
+        self.entropy.append(entropy_loss.item())
+        self.critic_loss.append(c_loss.item())
+        self.actor_loss.append(a_loss.item())
+
+    def learn(self, total_steps):
+        """
+        Args:
+            total_steps (int): The total number of training steps completed so far.
+                            This is used to adjust the learning rate during training.
+
+        Returns:
+            None
+
+        Explanation:
+            This function is the main learning process for the agent. It uses the experience collected
+            from previous steps (observations, actions, rewards, etc.) to update the agent's policy.
+            The steps followed include:
+                1. Get a batch of experiences from memory.
+                2. Apply reward scaling and compute advantages using GAE.
+                3. Normalize the advantages.
+                4. Update the learning rate based on the current training step.
+                5. Perform policy updates for the specified number of epochs:
+                    - Calculate the policy loss (actor loss) using the PPO clipped objective.
+                    - Update the critic network by minimizing the MSE loss between predicted and target values.
+                6. Save the loss values and clear memory.
+        """
+        # Retrieve training data from memory
         obs, global_obs, acts, logprob, rewards, state_vals, terminal = self.memory.get_batch()
-        step = acts.size(0)
-        index = np.arange(step)
-        # Save Losses
+        step = acts.size(0)  # Total number of timesteps in the batch
+        index = np.arange(step)  # Index array for shuffling
+
+        # Initialize losses
         critic_loss = 0
         actor_loss = 0
         entropy_loss = 0
-        # Calculate the size of the minibatches
+
+        # Determine the size of minibatches
         minibatch_size = step // self.minibatch_number
-        # Calculate advantage per timestep
+
+        # Calculate advantages using GAE
         A_k = self.calculate_gae(rewards, state_vals, terminal)
+
+        # Evaluate state values for global observations
         state_values, _, _ = self.evaluate(global_obs, obs, acts)
-        # Future rewards based on advantage and state value
+
+        # Calculate returns-to-go (RTG)
         rtgs = A_k + state_values.detach()
-        # Normalize the advantage
-        A_k = (A_k - A_k.mean())/(A_k.std() + 1e-8)
-        # Perform the updates for X amount of epochs
+
+        # Normalize advantages
+        A_k = (A_k - A_k.mean()) / (A_k.std() + 1e-8)
+
+        # Training loop for multiple epochs
         for _ in range(self.epochs):
-            # Reduce the learning rate
-            self.anneal_lr(total_steps)
-            np.random.shuffle(index) # Shuffle the index
-            # Process each minibatch
+            self.anneal_lr(total_steps)  # Reduce learning rate
+            np.random.shuffle(index)  # Shuffle indices for minibatches
+
+            # Process minibatches
             for start in range(0, step, minibatch_size):
-                # Create variables for minibatch data
                 end = start + minibatch_size
                 idx = index[start:end]
+                # Retrieve minibatch data
                 mini_obs = obs[idx]
                 mini_global_obs = global_obs[idx]
                 mini_acts = acts[idx]
                 mini_log_prob = logprob[idx]
                 mini_advantage = A_k[idx]
                 mini_rtgs = rtgs[idx]
-                state_values, curr_log_probs, entropy = self.evaluate(mini_global_obs,mini_obs, mini_acts)
-                # Compute policy loss with the formula
+
+                # Evaluate the current policy and compute losses
+                state_values, curr_log_probs, entropy = self.evaluate(mini_global_obs, mini_obs, mini_acts)
+
+                # Calculate policy loss
                 entropy_loss = entropy.mean()
                 logrations = curr_log_probs - mini_log_prob
                 ratios = torch.exp(logrations)
                 approx_kl = ((ratios - 1) - logrations).mean()
-                actor_loss1 = ratios*mini_advantage
-                actor_loss2 = torch.clamp(ratios, 1-self.clip, 1+self.clip)*mini_advantage
-                actor_loss = (-torch.min(actor_loss1,actor_loss2)).mean()
-                actor_loss = actor_loss - entropy_loss*self.entropy_coeff
+                actor_loss1 = ratios * mini_advantage
+                actor_loss2 = torch.clamp(ratios, 1 - self.clip, 1 + self.clip) * mini_advantage
+                actor_loss = -torch.min(actor_loss1, actor_loss2).mean() - entropy_loss * self.entropy_coeff
 
-                # Actor Update
+                # Update actor network
                 self.actor.actor_optimizer.zero_grad()
                 actor_loss.backward()
-                # Gradient clipping for the networks (L2 Normalization)
                 nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
                 self.actor.actor_optimizer.step()
-                # TODO: Change this
+
+                # Calculate critic loss and update critic network
                 critic_loss = nn.MSELoss()(state_values, mini_rtgs)
                 self.critic.critic_optimizer.zero_grad()
                 critic_loss.backward()
-                # Gradient clipping for the networks (L2 Normalization)
                 nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
                 self.critic.critic_optimizer.step()
 
-            # Check if the update was too large
+            # Stop training early if KL divergence exceeds threshold
             if approx_kl > self.target_kl:
                 print(f"Breaking Here: {approx_kl}")
                 break
-        # Clear memory
+
+        # Clear memory and save the results
         self.memory.clear_rollout_memory()
-        # Save last results
         self.save_data(entropy_loss, critic_loss, actor_loss)

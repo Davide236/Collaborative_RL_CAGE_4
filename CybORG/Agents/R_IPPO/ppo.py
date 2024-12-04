@@ -285,7 +285,6 @@ class PPO:
                 5. Perform policy updates for the specified number of epochs:
                     - Calculate the policy loss (actor loss) using the PPO clipped objective.
                     - Update the critic network by minimizing the MSE loss between predicted and target values.
-                    - Use mini-batches for training to stabilize the updates.
                 6. Save the loss values and clear memory.
         """
         # Retrieve a batch of observations and related data from memory

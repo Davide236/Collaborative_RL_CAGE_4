@@ -1,5 +1,4 @@
 # Code from: https://github.com/uoe-agents/revisiting-maddpg/blob/main/gradient_estimators.py
-import numpy as np
 import torch
 from torch import Tensor
 from torch.distributions import Gumbel, Exponential, OneHotCategorical

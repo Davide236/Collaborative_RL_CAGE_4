@@ -1,6 +1,5 @@
 import torch as T
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
 # Critic Network Class: Used to evaluate the value of a state-action pair

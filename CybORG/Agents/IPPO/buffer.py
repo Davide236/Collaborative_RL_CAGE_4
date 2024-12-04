@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 class ReplayBuffer:
@@ -42,33 +41,33 @@ class ReplayBuffer:
     # Save the current episode's data into the rollout memory
     def save_episode(self):
         # Append the stored episodic rewards, state values, and terminations into the memory
-        self.rewards_mem.append(self.episodic_rewards[:])  # Store the rewards for this episode
-        self.state_val_mem.append(self.episodic_state_val[:])  # Store the state values for this episode
-        self.terminal_mem.append(self.episodic_termination[:])  # Store the termination flags for this episode
-        self.intrinsic_rewards_mem.append(self.episodic_intrinsic_rew[:])  # Store the intrinsic rewards for this episode
+        self.rewards_mem.append(self.episodic_rewards[:])
+        self.state_val_mem.append(self.episodic_state_val[:])
+        self.terminal_mem.append(self.episodic_termination[:])
+        self.intrinsic_rewards_mem.append(self.episodic_intrinsic_rew[:])
         # Clear episodic memory after saving to avoid duplication
         self.clear_episodic()
 
     # Save the end-of-episode data (reward, intrinsic reward, and termination status)
     def save_end_episode(self, reward, intrinsic_rew, done):
         # Save the reward, intrinsic reward, and termination flag for the current step in the episode
-        self.episodic_rewards.append(reward)  # Add the current step's reward to episodic rewards
-        self.episodic_termination.append(done)  # Add the current step's termination status (True if done)
-        self.episodic_intrinsic_rew.append(intrinsic_rew)  # Store the intrinsic reward for exploration
+        self.episodic_rewards.append(reward)
+        self.episodic_termination.append(done) 
+        self.episodic_intrinsic_rew.append(intrinsic_rew)  
 
     # Save the beginning-of-episode data (state, action, log probability, and state value)
     def save_beginning_episode(self, final_state, logprob, action, state_value):
         # Save the initial state, action, log-probability of action, and state value for the first step
-        self.observation_mem.append(final_state)  # Append the final state of the environment
-        self.logprobs_mem.append(logprob)  # Append the log probability of the action taken (useful for policy gradient)
-        self.actions_mem.append(action)  # Append the action taken by the agent
-        self.episodic_state_val.append(state_value)  # Store the state value for the episode
+        self.observation_mem.append(final_state)
+        self.logprobs_mem.append(logprob)
+        self.actions_mem.append(action)  
+        self.episodic_state_val.append(state_value)  
 
     # Get a batch of data for training
     def get_batch(self):
         # Prepare a batch of data for training by converting lists to tensors
-        obs = torch.cat(self.observation_mem, dim=0)  # Concatenate all observations into a single tensor
-        acts = torch.tensor(self.actions_mem, dtype=torch.float)  # Convert the actions list into a tensor
-        logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()  # Flatten and convert logprobs to tensor
+        obs = torch.cat(self.observation_mem, dim=0) 
+        acts = torch.tensor(self.actions_mem, dtype=torch.float)
+        logprob = torch.tensor(self.logprobs_mem, dtype=torch.float).flatten()  
         # Return the full batch: observations, actions, log probabilities, rewards, state values, terminations, and intrinsic rewards
         return obs, acts, logprob, self.rewards_mem, self.state_val_mem, self.terminal_mem, self.intrinsic_rewards_mem

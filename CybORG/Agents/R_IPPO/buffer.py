@@ -101,5 +101,5 @@ class ReplayBuffer:
     # Save data for the end of an episode (rewards and termination flags)
     def save_end_episode(self, reward, done):
         # Append the final reward and termination flag to the episodic memory
-        self.episodic_rewards.append(reward)  # Save the final reward
-        self.episodic_termination.append(done)  # Save whether the episode is terminated
+        self.episodic_rewards.append(reward) 
+        self.episodic_termination.append(done) 

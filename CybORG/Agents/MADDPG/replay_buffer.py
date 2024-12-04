@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import random
 import gc
 
 # Class to implement a prioritized replay buffer (PeR) for experience replay in reinforcement learning
