@@ -102,8 +102,8 @@ class RecurrentMAPPOTrainer:
         # Initialize critic, checkpoint paths, and agents
         self.best_critic, self.last_critic = self.init_checkpoint()
         self.centralized_critic, self.critic_optimizer, self.message_type = self.initialize_critic(self.env)
-        self.checkpoint_critic = os.path.join(f'saved_networks\\mappo\\{self.message_type}', f'critic_ppo_central')
-        self.last_checkpoint_file_critic = os.path.join(f'last_networks\\mappo\\{self.message_type}', f'critic_ppo_central')
+        self.checkpoint_critic = os.path.join(f'saved_networks/r_mappo/{self.message_type}', f'critic_ppo_central')
+        self.last_checkpoint_file_critic = os.path.join(f'last_networks/r_mappo/{self.message_type}', f'critic_ppo_central')
         self.agents = self.setup_agents(self.env)
         print(f'Using agents {self.agents}')
 

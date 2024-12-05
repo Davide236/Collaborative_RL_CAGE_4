@@ -46,8 +46,8 @@ class MADDPGTrainer:
         
         # Initialize replay buffer for experience storage
         memory = ReplayBuffer(
-            size=2000,  # Maximum size of the replay buffer
-            actor_dims=actor_dims,
+            capacity=2000,  # Maximum size of the replay buffer
+            obs_dims=actor_dims,
             batch_size=self.rollout,  # Batch size for training
             episode_length=self.EPISODE_LENGTH - 1
         )
@@ -127,7 +127,9 @@ class MADDPGTrainer:
                 # Store episodic data in replay buffer
                 obs1 = self.transform_observations(observations)
                 obs2 = self.transform_observations(new_observations)
-                reward2 = self.transform_observations(reward_normalizer.normalize(reward))
+                reward2 = self.transform_observations(reward)
+                # Normalize rewards
+                reward2 = [reward_normalizer.normalize(x) for x in reward2]
                 self.memory.store_episodic(
                     obs1, acts, reward2, obs2, done, old_central_observations, new_central_observations, step=j
                 )

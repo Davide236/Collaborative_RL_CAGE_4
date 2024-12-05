@@ -8,3 +8,4 @@ fc: 256
 exploration: 'Bolzman' # 'greedy'
 message_type: 'action' #'8_bits' # 'action', '2_bits'
 lr_anneal: 'linear'
+#min_lr: 0.0001

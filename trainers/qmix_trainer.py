@@ -139,6 +139,7 @@ class QMIXTrainer:
                 obs1 = self.transform_observations(observations)
                 obs2 = self.transform_observations(new_observations)
                 reward2 = self.transform_observations(reward)
+                reward2 = [reward_normalizer.normalize(x) for x in reward2]
                 self.memory.store_episodic(obs1, acts, reward2, obs2, done, step=j)
                 
                 # Update observations for the next step

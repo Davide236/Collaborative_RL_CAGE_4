@@ -137,6 +137,7 @@ class QMix():
             params = yaml.safe_load(file) 
         self.gamma = float(params.get('gamma', 0.99)) 
         self.lr = float(params.get('lr', 2.5e-4)) 
+        self.min_lr = float(params.get('min_lr', 2.5e-4)) # Standard = no lr annealing
         self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5)) 
         self.start_epsilon = float(params.get('start_epsilon', 1))
         self.end_epsilon = float(params.get('end_epsilon', 0.01))
@@ -192,35 +193,7 @@ class QMix():
         for optimizer in self.agent_optimizers:
             optimizer.param_groups[0]["lr"] = new_lr
         self.mixing_optimizer.param_groups[0]["lr"] = new_lr
-        
-def anneal_lr(self):
-    """
-    Args: 
-        steps: Current step or episode number
-
-    Returns: None
-
-    Explanation: Decrease the learning rate through the episodes 
-            to promote exploitation over exploration.
-    """
-    steps = self.training_steps  # Current training step
-    frac = (steps - 1) / self.decay_steps  # Fraction of decay based on the current training step
-    
-    # Linear annealing: Linearly decrease the learning rate
-    if self.anneal_type == "linear":
-        new_lr = self.lr * (1 - frac)
-    else:
-        # Exponential annealing: Decrease the learning rate exponentially
-        new_lr = self.lr * (self.min_lr / self.lr) ** frac
-
-    # Ensure that learning rate does not go below the minimum learning rate
-    new_lr = max(new_lr, self.min_lr)
-
-    # Update the learning rates in all agent optimizers
-    for optimizer in self.agent_optimizers:
-        optimizer.param_groups[0]["lr"] = new_lr  # Set the new learning rate for the optimizer
-    # Update the mixing optimizer's learning rate
-    self.mixing_optimizer.param_groups[0]["lr"] = new_lr  
+          
 
     def update_target_networks(self):
         """
@@ -357,6 +330,7 @@ def anneal_lr(self):
         self.anneal_lr()  # Update learning rate based on the current step
         
         return pred_diff_arr  # Return the array of predicted differences (TD-errors)
+
 
     def temperature_annealing(self):
         """
