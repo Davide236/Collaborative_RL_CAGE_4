@@ -341,7 +341,6 @@ class PPO:
         reward_scaler = self.anneal_extrinsic_reward(total_steps)  # Adjust reward scaling
         intrinsic_rewards = [[j * reward_scaler for j in i] for i in intrinsic_rewards]  # Scale intrinsic rewards
         rewards = rewards + intrinsic_rewards  # Add intrinsic rewards to extrinsic rewards
-        
         step = acts.size(0)
         index = np.arange(step)  # Array of indices for mini-batch processing
         

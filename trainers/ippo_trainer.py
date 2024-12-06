@@ -63,6 +63,7 @@ class PPOTrainer:
     def run(self):
         self.initialize_environment()
         reward_normalizer = RewardNormalizer()  # Normalizes rewards for stability
+        exploration_normalizer = RewardNormalizer(max_value=50)
         for i in range(self.max_eps):
             # Start a new training episode
             observations, _ = self.env.reset()  # Reset environment to the initial state
@@ -99,7 +100,7 @@ class PPOTrainer:
                     done = termination[agent_name] or truncation[agent_name]
                     agent.memory.save_end_episode(
                         reward_normalizer.normalize(reward[agent_name]),
-                        intrinsic_rewards[agent_name],
+                        exploration_normalizer.normalize(intrinsic_rewards[agent_name]),
                         done
                     )
 
