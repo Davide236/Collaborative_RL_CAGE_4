@@ -340,10 +340,9 @@ class PPO:
         obs, acts, logprob, rewards, state_val, terminal, intrinsic_rewards = self.memory.get_batch()
         reward_scaler = self.anneal_extrinsic_reward(total_steps)  # Adjust reward scaling
         intrinsic_rewards = [[j * reward_scaler for j in i] for i in intrinsic_rewards]  # Scale intrinsic rewards
-        rewards = rewards + intrinsic_rewards  # Add intrinsic rewards to extrinsic rewards
+        rewards = [arr1 + arr2 for arr1, arr2 in zip(np.array(rewards), np.array(intrinsic_rewards))] # Combine rewards
         step = acts.size(0)
         index = np.arange(step)  # Array of indices for mini-batch processing
-        
         # Initialize loss values
         critic_loss = 0
         actor_loss = 0
