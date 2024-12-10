@@ -65,7 +65,7 @@ class R_QMIXTrainer:
 
         return agents, memory  # Return initialized agents and memory buffer
 
-    def transform_observations(obs):
+    def transform_observations(self, obs):
         # Helper function to transform and concatenate observations for each agent
         observations = []
         for i in range(5):  # For 5 agents
@@ -165,9 +165,9 @@ class R_QMIXTrainer:
                 self.best_reward = sum(r)
                 # Save the networks for each agent and the mixing network (QMIX network)
                 for number, network in enumerate(self.agents.agent_networks):
-                    save_path = os.path.join(f'saved_networks\qmix\{self.agents.message_type}', f'qmix_{number}')
+                    save_path = os.path.join(f'saved_networks/r_qmix/{self.agents.message_type}', f'qmix_{number}')
                     save_agent_network(network, self.agents.agent_optimizers[number], save_path)
-                save_path = os.path.join(f'saved_networks\qmix\{self.agents.message_type}', f'mixer')
+                save_path = os.path.join(f'saved_networks/r_qmix/{self.agents.message_type}', f'mixer')
                 save_agent_network(self.agents.qmix_net_eval, self.agents.mixing_optimizer, save_path)
 
             # Add total rewards of this episode to the list

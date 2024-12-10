@@ -9,86 +9,161 @@ import numpy as np
 
 from CybORG.Agents.Messages.message_handler import MessageHandler
 from CybORG.Agents.QMIX.qmix_net import QMixNet, AgentNetwork
-#from qmix_net import QMixNet, AgentNetwork
 
 class QMix():
 
     def __init__(self, n_agents, n_actions, obs_space, state_space, episode_length, total_episodes, messages):
-        # TODO: Init Hyperparams method
-        self.init_hyperparams(episode_length, total_episodes)
-        self.init_check_memory()
-        self.n_agents = n_agents
-        self.n_actions = n_actions
-        self.obs_space = obs_space
-        self.state_space = state_space
+        """
+        Args:
+            n_agents (int): Number of agents.
+            n_actions (list): Actions available to each agent.
+            obs_space (list): Observation space for each agent.
+            state_space (int): Global state space.
+            episode_length (int): Length of an episode.
+            total_episodes (int): Total number of episodes for training.
+            messages (bool): Flag to use message passing.
+        
+        Returns:
+            None
+        
+        Explanation:
+            Initializes the parameters for the QMIX model, including network setup and optimizers.
+        """
+        self.init_hyperparams(episode_length, total_episodes)  # Initialize hyperparameters (learning rate, gamma, etc.)
+        self.init_check_memory()  # Initialize memory for loss tracking and saving statistics
+        self.n_agents = n_agents  # Set the number of agents
+        self.n_actions = n_actions  # Set the actions available to each agent
+        self.obs_space = obs_space  # Set the observation space for each agent
+        self.state_space = state_space  # Set the global state space
+        # Initialize the agent networks, one for each agent
         self.agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i], self.fc) for i in range(self.n_agents)]
+        # Initialize the target agent networks (for target Q-value computation)
         self.target_agent_networks = [AgentNetwork(self.obs_space[i], self.n_actions[i], self.fc) for i in range(self.n_agents)]
-        # Network for summing up the Q-values of agents
+        # Initialize the QMIX network for mixing the Q-values of individual agents
         self.qmix_net_eval = QMixNet(self.n_agents, state_space, self.fc)
+        # Initialize the target QMIX network for target Q-value calculation
         self.qmix_net_target = QMixNet(self.n_agents, state_space, self.fc)
+        # Optimizer for each agent network
         self.agent_optimizers = [torch.optim.Adam(agent.parameters(), lr=self.lr) for agent in self.agent_networks]
+        # Optimizer for the QMIX network
         self.mixing_optimizer = torch.optim.Adam(self.qmix_net_eval.parameters(), lr=self.lr)
-        # Message setup
-        self.use_messages = messages
+        self.use_messages = messages  # Flag to indicate if messages are passed between agents
+        # Initialize message handlers for each agent
         self.message_handler = [MessageHandler(message_type=self.message_type, number=agent_number) for agent_number in range(self.n_agents)] 
-        #self.device = torch.device('cpu')
     
     def init_check_memory(self):
-        self.loss = []
-        self.save_path = f'saved_statistics/qmix/{self.message_type}/data_agent_qmix.csv'
-
+        """
+        Args:
+            None
+            
+        Returns:
+            None
+        
+        Explanation:
+            Initializes the memory for loss tracking and saving statistics.
+        """
+        self.loss = []  # List to track the loss values over training
+        # Path to save the statistics and data related to training
+        self.save_path = f'saved_statistics/r_qmix/{self.message_type}/data_agent_qmix.csv'
+    
     def load_last_epoch(self):
+        """
+        Args:
+            None
+            
+        Returns:
+            None
+        
+        Explanation:
+            Loads the weights and optimizer states for both agent and QMIX networks from the most recent checkpoint 
+            for continued training.
+        """
         print('Loading Last saved Networks......')
         for number, network in enumerate(self.agent_networks):
+            # Load the checkpoint for each agent network
             checkpoint = os.path.join(f'last_networks/r_qmix/{self.message_type}', f'qmix_{number}')
-            checkpoint = torch.load(checkpoint)
-            network.load_state_dict(checkpoint['network_state_dict'])
-            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])
-            self.target_agent_networks[number].load_state_dict(network.state_dict())
+            checkpoint = torch.load(checkpoint)  # Load the checkpoint from the file
+            network.load_state_dict(checkpoint['network_state_dict'])  # Load the network state
+            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])  # Load optimizer state
+            self.target_agent_networks[number].load_state_dict(network.state_dict())  # Copy current network weights to target network
+        # Load the checkpoint for the QMIX network
         checkpoint = os.path.join(f'last_networks/r_qmix/{self.message_type}', f'mixer')
         checkpoint = torch.load(checkpoint)
-        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])
-        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
+        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])  # Load QMIX network state
+        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # Load optimizer state for QMIX network
+        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())  # Copy current QMIX network weights to target network
 
-    # Load both actor and critic network of the agent
     def load_network(self):
+        """
+        Args:
+            None
+            
+        Returns:
+            None
+        
+        Explanation:
+            Loads the weights of the trained agent and QMIX networks from the saved checkpoint for inference or 
+            continued training.
+        """
         print('Loading Networks......')
         for number, network in enumerate(self.agent_networks):
+            # Load the trained agent network weights from the saved checkpoint
             checkpoint = os.path.join(f'saved_networks/r_qmix/{self.message_type}', f'qmix_{number}')
             checkpoint = torch.load(checkpoint)
-            network.load_state_dict(checkpoint['network_state_dict'])
-            self.target_agent_networks[number].load_state_dict(network.state_dict())
-            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])
+            network.load_state_dict(checkpoint['network_state_dict'])  # Load agent network weights
+            self.target_agent_networks[number].load_state_dict(network.state_dict())  # Update target agent network
+            self.agent_optimizers[number].load_state_dict(checkpoint['optimizer_state_dict'])  # Load the optimizer state
+        # Load the trained QMIX network weights
         checkpoint = os.path.join(f'saved_networks/r_qmix/{self.message_type}', f'mixer')
         checkpoint = torch.load(checkpoint)
-        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])
-        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
+        self.qmix_net_eval.load_state_dict(checkpoint['network_state_dict'])  # Load QMIX network weights
+        self.mixing_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # Load optimizer state for QMIX network
+        self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())  # Copy current QMIX network weights to target network
 
     def init_hyperparams(self, ep_length, total_episodes):
-        # TODO: Change this
-        self.episode_length = ep_length
+        """
+        Args:
+            ep_length (int): The length of each episode.
+            total_episodes (int): The total number of training episodes.
+        
+        Returns:
+            None
+        
+        Explanation:
+            Initializes the hyperparameters from the configuration file for the agent's learning process.
+        """
+        self.episode_length = ep_length 
         config_file_path = os.path.join(os.path.dirname(__file__), 'hyperparameters.yaml')
         with open(config_file_path, 'r') as file:
-            params = yaml.safe_load(file)
-        self.gamma = float(params.get('gamma', 0.99))
-        self.lr = float(params.get('lr', 2.5e-4))
-        self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5))
-        self.start_epsilon =float(params.get('start_epsilon', 1)) 
+            params = yaml.safe_load(file) 
+        self.gamma = float(params.get('gamma', 0.99)) 
+        self.lr = float(params.get('lr', 2.5e-4)) 
+        self.min_lr = float(params.get('min_lr', 2.5e-4)) # Standard = no lr annealing
+        self.grad_norm_clip = float(params.get('grad_norm_clip', 0.5)) 
+        self.start_epsilon = float(params.get('start_epsilon', 1))
         self.end_epsilon = float(params.get('end_epsilon', 0.01))
-        self.start_temperature =float(params.get('start_temperature', 0.5)) 
+        self.start_temperature = float(params.get('start_temperature', 0.5))
         self.end_temperature = float(params.get('end_temperature', 0.01))
-        self.fc = int(params.get('fc', 256))
-        self.update_interval = int(params.get('update_interval', 10))
-        self.message_type = params.get('message_type', 'simple')
-        self.exploration = params.get('exploration', 'greedy')
-        self.anneal_type = params.get('lr_anneal', 'linear')
-        self.training_steps = 0
-        self.decay_steps = total_episodes*0.8 # Training Steps in which it takes to decay
+        self.fc = int(params.get('fc', 256)) 
+        self.update_interval = int(params.get('update_interval', 10)) 
+        self.message_type = params.get('message_type', 'simple') 
+        self.exploration = params.get('exploration', 'greedy') 
+        self.anneal_type = params.get('lr_anneal', 'linear') 
+        self.training_steps = 0 
+        self.decay_steps = total_episodes * 0.8 
     
-    # Exponential annealing
     def epsilon_annealing(self):
+        """
+        Args:
+            None
+            
+        Returns:
+            float: The annealed epsilon value for exploration-exploitation trade-off.
+        
+        Explanation:
+            Computes the epsilon value that controls exploration. It gradually decays from a starting value 
+            to the final epsilon.
+        """
         epsilon = self.end_epsilon + (self.start_epsilon - self.end_epsilon) * math.exp(-self.training_steps / self.decay_steps)
         return epsilon
     
@@ -119,18 +194,26 @@ class QMix():
         for optimizer in self.agent_optimizers:
             optimizer.param_groups[0]["lr"] = new_lr
         self.mixing_optimizer.param_groups[0]["lr"] = new_lr
-    
+        
+        
     def reset_hidden_layer(self):
+        # Reset the value of the hidden layer (recurrent) of the network
         for network in self.agent_networks:
             network.rnn_hidden = None
     
     def reset_hidden_target(self):
+        # Reset the value of the hidden layer (recurrent) of the target network
         for network in self.target_agent_networks:
             network.rnn_hidden = None
 
     def update_target_networks(self):
+        """
+        Explanation: Copies the weights from the current agent networks to the target networks for stable learning.
+        """
+        # Update target agent networks with the current agent networks' weights
         for i in range(self.n_agents):
-            self.target_agent_networks[i].load_state_dict(self.agent_networks[i].state_dict())
+            self.target_agent_networks[i].load_state_dict(self.agent_networks[i].state_dict()) 
+        # Update target QMIX network with the current QMIX network's weights
         self.qmix_net_target.load_state_dict(self.qmix_net_eval.state_dict())
 
     def process_batch(self, batch):
@@ -164,7 +247,6 @@ class QMix():
         q_total_target = self.qmix_net_target(target_qs, central_state_next)
         return q_total_eval, q_total_target, rwrd, term
 
-    # TODO: Check this update function
     def train(self, batch, count):
         total_episodes = len(batch)
         self.training_steps += 1
@@ -208,60 +290,100 @@ class QMix():
         
         
     
-    # Exponential annealing
     def temperature_annealing(self):
+        """
+        Explanation: Computes the annealed temperature for exploration, decaying over time to reduce randomness.
+        """
+        # Compute epsilon (temperature) using exponential decay
         epsilon = self.end_temperature + (self.start_temperature - self.end_temperature) * math.exp(-self.training_steps / self.decay_steps)
         return epsilon
     
 
     def eps_greedy(self, q_value, agent_idx):
-        epsilon = self.epsilon_annealing()
-        random_value = random.random()
-        # With probability eps, do a random action
+        """
+        Args:
+            q_value (tensor): The Q-values for the current state.
+            agent_idx (int): The index of the agent to select the action for.
+
+        Returns:
+            action (int): The chosen action based on the epsilon-greedy strategy.
+        
+        Explanation: 
+            Chooses an action using an epsilon-greedy strategy based on the Q-values and exploration-exploitation trade-off.
+        """
+        epsilon = self.epsilon_annealing()  # Get epsilon value based on annealing
+        random_value = random.random()  # Generate a random number for exploration
+        # If a random value is smaller than epsilon, select a random action (exploration)
         if agent_idx == 4:
             if random_value < epsilon:
-                action = random.randint(0, q_value.shape[0]-1)
+                action = random.randint(0, q_value.shape[0] - 1)  # Random action
             else:
-                action = torch.argmax(q_value).item()
+                action = torch.argmax(q_value).item()  # Choose action with max Q-value (exploitation)
         else:
             if random_value < epsilon:
-                action = random.randint(0, min(q_value.shape[0], 85) - 1)
+                action = random.randint(0, min(q_value.shape[0], 85) - 1)  # Random action
             else:
-                action = torch.argmax(q_value[:85]).item()
+                action = torch.argmax(q_value[:85]).item()  # Choose action based on first 85 Q-values (exploitation)
+        
         return action
-    
 
     def bolzman_exploration(self, q_value, agent_idx):
-        temperature = self.temperature_annealing()
-        soft = nn.Softmax(dim=-1)
-        # In this case the Q_Value is based only on the state
+        """
+        Explanation: 
+            Selects an action based on Boltzmann exploration, where the Q-values are transformed using a temperature parameter.
+        """
+        temperature = self.end_temperature  # Use end temperature for Boltzmann exploration
+        soft = nn.Softmax(dim=-1)  # Softmax function to transform Q-values into probabilities
+        
+        # If agent index is 4, perform Boltzmann exploration over all Q-values
         if agent_idx == 4:
-            prob =  soft(q_value/temperature)
-            prob = prob.detach().numpy()
-            prob = prob / prob.sum()
+            prob = soft(q_value / temperature)  # Scale Q-values by temperature
+            prob = prob.detach().numpy()  # Convert tensor to numpy for probability selection
+            prob = prob / prob.sum()  # Normalize probabilities
         else:
+            # Mask Q-values for agents other than 4 (set large negative values for unused actions)
             mask = np.ones_like(q_value.detach().numpy())
-            mask[85:] = -np.inf  # Setting a very negative value
+            mask[85:] = -np.inf  # Set a large negative value for actions > 85
             masked_q_value = q_value + torch.tensor(mask, dtype=torch.float32)
-            prob =  soft(masked_q_value/temperature)
-            prob = prob.detach().numpy()
-        action = np.random.choice(self.n_actions[agent_idx], p=prob)
+            prob = soft(masked_q_value / temperature)  # Apply softmax to masked Q-values
+            prob = prob.detach().numpy()  # Convert tensor to numpy for probability selection
+        
+        # Select an action based on the computed probabilities
+        action = np.random.choice(self.n_actions[agent_idx], p=prob)  # Randomly select action using probabilities
+        
         return action
 
-
     def choose_actions(self, observations):
-        actions = []
-        messages = []
+        """
+        Args:
+            observations (list): A list of observations from the environment.
+
+        Returns:
+            actions (list): A list of actions chosen by each agent.
+            messages (list): A list of messages (if applicable) sent by each agent.
+        
+        Explanation: 
+            Selects actions for each agent based on their observations and exploration strategy.
+        """
+        actions = []  # Initialize list for chosen actions
+        messages = []  # Initialize list for messages (if any)
+        
+        # Iterate over each agent and choose an action
         for i, agent in enumerate(self.agent_networks):
-            obs = observations[i]
-            q_value = agent(torch.tensor(obs, dtype=torch.float32))
+            obs = observations[i]  # Get the observation for the current agent
+            q_value = agent(torch.tensor(obs, dtype=torch.float32))  # Get Q-values for the current observation
+            
+            # Choose action based on exploration strategy (epsilon-greedy or Boltzmann)
             if self.exploration == 'greedy':
-                action = self.eps_greedy(q_value, i)
+                action = self.eps_greedy(q_value, i)  # Choose action using epsilon-greedy
             else:
-                action = self.bolzman_exploration(q_value, i)
-            # Add small value to avoid division by 0
-            actions.append(action)
+                action = self.bolzman_exploration(q_value, i)  # Choose action using Boltzmann exploration
+            
+            actions.append(action)  # Append the action to the list
+            
+            # If messages are enabled, prepare messages for communication
             if self.use_messages:
-                message  = self.message_handler[i].prepare_message(obs, action)
-                messages.append(message)
-        return actions, messages
+                message = self.message_handler[i].prepare_message(obs, action)
+                messages.append(message)  # Append the message to the list
+        
+        return actions, messages  # Return the chosen actions and messages
